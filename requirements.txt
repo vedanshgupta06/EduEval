@@ -1,0 +1,21 @@
+fastapi==0.111.0
+uvicorn==0.29.0
+python-multipart==0.0.9
+
+# NLP
+sentence-transformers==2.7.0
+bert-score==0.3.13
+rapidfuzz==3.9.0
+nltk==3.8.1
+scikit-learn==1.4.2
+
+# OCR
+easyocr==1.7.1
+Pillow==10.3.0
+pymupdf==1.24.3        # PDF to image conversion
+
+# HTTP client (to fetch files from Spring Boot)
+httpx==0.27.0
+
+# Utilities
+python-dotenv==1.0.1
