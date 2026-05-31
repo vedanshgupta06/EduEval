@@ -12,5 +12,7 @@ public record SubmissionResponse(
         String studentName,
         String fileUrl,
         SubmissionStatus status,
-        LocalDateTime submittedAt
+        LocalDateTime submittedAt,
+        Double aiMarks,
+        Double finalMarks
 ) {}

@@ -12,8 +12,6 @@ import com.edueval.exception.UnauthorizedActionException;
 import com.edueval.repository.EvaluationRepository;
 import com.edueval.repository.SubmissionRepository;
 import com.edueval.repository.UserRepository;
-import com.fasterxml.jackson.databind.JsonNode;
-import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.security.core.context.SecurityContextHolder;
@@ -35,9 +33,6 @@ public class EvaluationService {
     private final AiEngineService aiEngineService;
     private final UserRepository userRepository;
 
-    // Jackson ObjectMapper — thread-safe, reuse the same instance
-    private final ObjectMapper objectMapper = new ObjectMapper();
-
     // ── Shared ───────────────────────────────────────────────────────────────
 
     @Transactional(readOnly = true)
@@ -55,7 +50,6 @@ public class EvaluationService {
         Evaluation evaluation = findById(evaluationId);
         requireTeacherOwnership(evaluation.getSubmission().getExam());
 
-        // Validate marks don't exceed total
         double totalMarks = evaluation.getSubmission().getExam().getTotalMarks();
         if (request.marks() > totalMarks) {
             throw new IllegalArgumentException(
@@ -84,7 +78,6 @@ public class EvaluationService {
         submission.setStatus(SubmissionStatus.PROCESSING);
         submissionRepository.save(submission);
 
-        // Clear previous AI result
         evaluation.setAiMarks(null);
         evaluation.setAiConfidence(null);
         evaluation.setAiFeedbackJson(null);
@@ -92,7 +85,7 @@ public class EvaluationService {
 
         aiEngineService.evaluate(
                 submission,
-                resultJson -> handleAiResult(evaluation.getId(), resultJson),
+                evaluation.getId(),
                 error -> log.error("Re-evaluation failed for evaluation {}: {}",
                         evaluationId, error.getMessage())
         );
@@ -104,64 +97,8 @@ public class EvaluationService {
                 .stream().map(this::toResponse).collect(Collectors.toList());
     }
 
-    // ── AI result handler ─────────────────────────────────────────────────────
+    // ── Initiate (called by SubmissionService) ────────────────────────────────
 
-    /**
-     * Parses the AI JSON payload using Jackson and persists results.
-     * Expected JSON from FastAPI:
-     * {
-     *   "ai_marks": 18.5,
-     *   "ai_confidence": 0.87,
-     *   "feedback": {
-     *     "covered_keywords": [...],
-     *     "missing_keywords": [...],
-     *     "missing_sentences": [...],
-     *     "semantic_score": 0.81,
-     *     "keyword_score": 0.70,
-     *     "sentence_score": 0.75,
-     *     "length_score": 0.90
-     *   }
-     * }
-     */
-    @Transactional
-    public void handleAiResult(UUID evaluationId, String resultJson) {
-        Evaluation evaluation = findById(evaluationId);
-
-        try {
-            JsonNode root = objectMapper.readTree(resultJson);
-
-            double aiMarks      = root.path("ai_marks").asDouble(0.0);
-            double aiConfidence = root.path("ai_confidence").asDouble(0.0);
-
-            // Clamp marks to total marks ceiling
-            double totalMarks = evaluation.getSubmission().getExam().getTotalMarks();
-            aiMarks = Math.min(aiMarks, totalMarks);
-
-            evaluation.setAiMarks(aiMarks);
-            evaluation.setAiConfidence(aiConfidence);
-            evaluation.setAiFeedbackJson(resultJson); // store full JSON for frontend
-            evaluationRepository.save(evaluation);
-
-            Submission submission = evaluation.getSubmission();
-            submission.setStatus(SubmissionStatus.AI_EVALUATED);
-            submissionRepository.save(submission);
-
-            log.info("AI result saved for evaluation {} — marks: {}, confidence: {}",
-                    evaluationId, aiMarks, aiConfidence);
-
-        } catch (Exception e) {
-            log.error("Failed to parse AI result for evaluation {}: {}", evaluationId, e.getMessage());
-            // Don't crash — revert submission status so teacher knows something went wrong
-            Submission submission = evaluation.getSubmission();
-            submission.setStatus(SubmissionStatus.PENDING);
-            submissionRepository.save(submission);
-        }
-    }
-
-    /**
-     * Creates a new Evaluation record and triggers AI asynchronously.
-     * Called by SubmissionService after file is stored.
-     */
     @Transactional
     public void initiateEvaluation(Submission submission) {
         Evaluation evaluation = Evaluation.builder()
@@ -174,7 +111,7 @@ public class EvaluationService {
 
         aiEngineService.evaluate(
                 submission,
-                resultJson -> handleAiResult(saved.getId(), resultJson),
+                saved.getId(),
                 error -> {
                     submission.setStatus(SubmissionStatus.PENDING);
                     submissionRepository.save(submission);
@@ -211,6 +148,7 @@ public class EvaluationService {
                 s.getId(),
                 s.getStudent().getName(),
                 s.getExam().getTitle(),
+                s.getExam().getTotalMarks().doubleValue(),
                 e.getAiMarks(),
                 e.getAiConfidence(),
                 e.getAiFeedbackJson(),
@@ -220,6 +158,25 @@ public class EvaluationService {
                 e.getReviewedAt(),
                 e.getFinalMarks(),
                 e.isReviewed()
+        );
+    }
+    // EvaluationService.java — add this method
+    @Transactional
+    public void triggerReEvaluationInternal(Evaluation evaluation) {
+        Submission submission = evaluation.getSubmission();
+        submission.setStatus(SubmissionStatus.PROCESSING);
+        submissionRepository.save(submission);
+
+        evaluation.setAiMarks(null);
+        evaluation.setAiConfidence(null);
+        evaluation.setAiFeedbackJson(null);
+        evaluationRepository.save(evaluation);
+
+        aiEngineService.evaluate(
+                submission,
+                evaluation.getId(),
+                error -> log.error("Startup re-evaluation failed for evaluation {}: {}",
+                        evaluation.getId(), error.getMessage())
         );
     }
 }

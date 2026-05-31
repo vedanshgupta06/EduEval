@@ -15,7 +15,7 @@ public interface SubmissionRepository extends JpaRepository<Submission, UUID> {
     Optional<Submission> findByStudentAndExam(User student, Exam exam);
 
     boolean existsByStudentAndExam(User student, Exam exam);
-
+    List<Submission> findByStatus(SubmissionStatus status);
     // All submissions for a given exam (teacher view)
     List<Submission> findByExam(Exam exam);
 

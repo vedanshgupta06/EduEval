@@ -23,6 +23,14 @@ public interface EvaluationRepository extends JpaRepository<Evaluation, UUID> {
     """)
     List<Evaluation> findByExamId(UUID examId);
 
+    // EvaluationRepository.java — add this method
+    @Query("SELECT e FROM Evaluation e " +
+            "JOIN FETCH e.submission s " +
+            "JOIN FETCH s.exam ex " +
+            "JOIN FETCH s.student " +
+            "WHERE s.status = 'PENDING'")
+    List<Evaluation> findPendingEvaluations();
+
     // Pending teacher review
     @Query("""
         SELECT e FROM Evaluation e

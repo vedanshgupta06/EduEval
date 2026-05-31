@@ -17,15 +17,15 @@ import java.util.function.Consumer;
 @RequiredArgsConstructor
 public class AiEngineService {
 
-    // Injected as a Spring bean — timeouts configured in AppConfig
     private final RestTemplate restTemplate;
+    private final AiResultHandler aiResultHandler;  // ← no circular dependency
 
     @Value("${app.ai-engine.base-url}")
     private String aiBaseUrl;
 
     @Async
     public void evaluate(Submission submission,
-                         Consumer<String> onSuccess,
+                         UUID evaluationId,
                          Consumer<Throwable> onError) {
 
         UUID submissionId = submission.getId();
@@ -46,7 +46,7 @@ public class AiEngineService {
                     String.class
             );
             log.info("AI evaluation complete for submission {}", submissionId);
-            onSuccess.accept(result != null ? result : "{}");
+            aiResultHandler.handleAiResult(evaluationId, result != null ? result : "{}");
         } catch (Exception e) {
             log.error("AI engine error for submission {}: {}", submissionId, e.getMessage());
             onError.accept(e);

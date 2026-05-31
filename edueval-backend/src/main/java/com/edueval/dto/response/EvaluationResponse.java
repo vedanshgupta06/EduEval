@@ -8,7 +8,7 @@ public record EvaluationResponse(
         UUID submissionId,
         String studentName,
         String examTitle,
-
+        Double totalMarks,
         // AI results
         Double aiMarks,
         Double aiConfidence,

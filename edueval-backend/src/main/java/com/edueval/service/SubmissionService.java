@@ -1,6 +1,7 @@
 package com.edueval.service;
 
 import com.edueval.dto.response.SubmissionResponse;
+import com.edueval.entity.Evaluation;
 import com.edueval.entity.Exam;
 import com.edueval.entity.Submission;
 import com.edueval.entity.User;
@@ -8,6 +9,7 @@ import com.edueval.enums.SubmissionStatus;
 import com.edueval.exception.ResourceNotFoundException;
 import com.edueval.exception.UnauthorizedActionException;
 import com.edueval.repository.ClassroomMemberRepository;
+import com.edueval.repository.EvaluationRepository;
 import com.edueval.repository.SubmissionRepository;
 import com.edueval.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
@@ -19,6 +21,7 @@ import org.springframework.web.multipart.MultipartFile;
 
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Optional;
 import java.util.UUID;
 import java.util.stream.Collectors;
 
@@ -27,11 +30,12 @@ import java.util.stream.Collectors;
 public class SubmissionService {
 
     private final SubmissionRepository submissionRepository;
-    private final ClassroomMemberRepository classroomMemberRepository;  // FIX: membership check
+    private final ClassroomMemberRepository classroomMemberRepository;
     private final ExamService examService;
     private final FileStorageService fileStorageService;
     private final UserRepository userRepository;
     private final ApplicationContext applicationContext;
+    private final EvaluationRepository evaluationRepository; // ← add this
 
     // ── Student ──────────────────────────────────────────────────────────────
 
@@ -40,7 +44,6 @@ public class SubmissionService {
         User student = currentUser();
         Exam exam = examService.findById(examId);
 
-        // FIX 1: Verify student is enrolled in the classroom
         boolean isMember = classroomMemberRepository
                 .existsByClassroomAndStudent(exam.getClassroom(), student);
         if (!isMember) {
@@ -48,13 +51,11 @@ public class SubmissionService {
                     "You are not enrolled in this exam's classroom");
         }
 
-        // FIX 2: Enforce submission deadline at API level
         if (exam.getDeadline().isBefore(LocalDateTime.now())) {
             throw new IllegalArgumentException(
                     "The submission deadline for this exam has passed");
         }
 
-        // FIX 3: Prevent duplicate submissions
         if (submissionRepository.existsByStudentAndExam(student, exam)) {
             throw new IllegalArgumentException(
                     "You have already submitted for this exam. " +
@@ -72,7 +73,6 @@ public class SubmissionService {
 
         Submission saved = submissionRepository.save(submission);
 
-        // Trigger AI evaluation asynchronously
         applicationContext.getBean(EvaluationService.class).initiateEvaluation(saved);
 
         return toResponse(saved);
@@ -131,6 +131,15 @@ public class SubmissionService {
     }
 
     private SubmissionResponse toResponse(Submission s) {
+        Double aiMarks = null;
+        Double finalMarks = null;
+
+        Optional<Evaluation> eval = evaluationRepository.findBySubmissionId(s.getId());
+        if (eval.isPresent()) {
+            aiMarks = eval.get().getAiMarks();
+            finalMarks = eval.get().getFinalMarks();
+        }
+
         return new SubmissionResponse(
                 s.getId(),
                 s.getExam().getId(),
@@ -139,7 +148,9 @@ public class SubmissionService {
                 s.getStudent().getName(),
                 s.getFileUrl(),
                 s.getStatus(),
-                s.getSubmittedAt()
+                s.getSubmittedAt(),
+                aiMarks,
+                finalMarks
         );
     }
 }
