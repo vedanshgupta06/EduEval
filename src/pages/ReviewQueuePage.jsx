@@ -2,7 +2,8 @@ import { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import api from '../api/axios';
 import toast from 'react-hot-toast';
-import { CheckCircle, Clock, AlertCircle, Eye } from 'lucide-react';
+import { CheckCircle, Clock, AlertCircle, Eye, Download } from 'lucide-react';
+import { downloadReport } from '../api/reports';
 
 export default function ReviewQueuePage() {
   const { examId } = useParams();
@@ -61,6 +62,19 @@ export default function ReviewQueuePage() {
             {submissions.length} submission{submissions.length !== 1 ? 's' : ''}
           </p>
         </div>
+        <button
+          className="btn-secondary"
+          onClick={async () => {
+            try {
+              await downloadReport('exam', examId);
+              toast.success('Report downloaded!');
+            } catch {
+              toast.error('Failed to download report');
+            }
+          }}
+        >
+          <Download size={15} /> Download Report
+        </button>
       </div>
 
       {/* Filter tabs */}
