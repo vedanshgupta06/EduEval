@@ -39,6 +39,14 @@ public class EvaluationController {
         return ResponseEntity.accepted().build();
     }
 
+    // POST /api/teacher/submissions/{id}/evaluate
+    @PostMapping("/api/teacher/submissions/{submissionId}/evaluate")
+    public ResponseEntity<EvaluationResponse> evaluateSubmission(
+            @PathVariable UUID submissionId) {
+        return ResponseEntity.accepted()
+                .body(evaluationService.triggerEvaluationForSubmission(submissionId));
+    }
+
     // GET /api/teacher/exams/{id}/review-queue
     @GetMapping("/api/teacher/exams/{examId}/review-queue")
     public ResponseEntity<List<EvaluationResponse>> getReviewQueue(

@@ -91,6 +91,39 @@ public class EvaluationService {
         );
     }
 
+    @Transactional
+    public EvaluationResponse triggerEvaluationForSubmission(UUID submissionId) {
+        Submission submission = submissionRepository.findById(submissionId)
+                .orElseThrow(() -> new ResourceNotFoundException("Submission not found: " + submissionId));
+        requireTeacherOwnership(submission.getExam());
+
+        Evaluation evaluation = evaluationRepository.findBySubmission(submission)
+                .orElseGet(() -> evaluationRepository.save(
+                        Evaluation.builder().submission(submission).build()));
+
+        submission.setStatus(SubmissionStatus.PROCESSING);
+        submissionRepository.save(submission);
+
+        evaluation.setAiMarks(null);
+        evaluation.setAiConfidence(null);
+        evaluation.setAiFeedbackJson(null);
+        evaluationRepository.save(evaluation);
+
+        UUID evaluationId = evaluation.getId();
+        aiEngineService.evaluate(
+                submission,
+                evaluationId,
+                error -> {
+                    submission.setStatus(SubmissionStatus.PENDING);
+                    submissionRepository.save(submission);
+                    log.error("Evaluation retry failed for submission {}: {}",
+                            submissionId, error.getMessage());
+                }
+        );
+
+        return toResponse(evaluation);
+    }
+
     @Transactional(readOnly = true)
     public List<EvaluationResponse> getPendingReviewQueue(UUID examId) {
         return evaluationRepository.findUnreviewedByExamId(examId)

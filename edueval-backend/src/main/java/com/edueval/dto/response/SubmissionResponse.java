@@ -10,9 +10,11 @@ public record SubmissionResponse(
         String examTitle,
         UUID studentId,
         String studentName,
+        String classroomName,
+        Integer totalMarks,
         String fileUrl,
         SubmissionStatus status,
-        LocalDateTime submittedAt,
         Double aiMarks,
-        Double finalMarks
+        Double finalMarks,
+        LocalDateTime submittedAt
 ) {}

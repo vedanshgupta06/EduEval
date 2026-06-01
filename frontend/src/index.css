@@ -50,6 +50,7 @@ a:hover { text-decoration: underline; }
 
 .page-header h2 { font-size: 1.6rem; font-weight: 700; }
 .page-subtitle { color: var(--gray-600); font-size: 0.9rem; margin-top: 0.2rem; }
+.page-actions { display: flex; gap: 0.75rem; flex-wrap: wrap; }
 
 /* ── Navbar ───────────────────────────────────────────────────────────────── */
 
@@ -475,6 +476,27 @@ a:hover { text-decoration: underline; }
 .override-card { display: flex; flex-direction: column; gap: 1rem; }
 .reviewed-note { font-size: 0.8rem; color: var(--success); text-align: center; }
 
+.evaluation-state-card {
+  min-height: 280px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0.9rem;
+  text-align: center;
+  color: var(--gray-600);
+}
+
+.evaluation-state-card h4 {
+  font-size: 1rem;
+  color: var(--gray-800);
+}
+
+.evaluation-state-card p {
+  max-width: 520px;
+  font-size: 0.9rem;
+}
+
 /* ── Feedback card ────────────────────────────────────────────────────────── */
 
 .feedback-card {
@@ -534,7 +556,7 @@ a:hover { text-decoration: underline; }
 
 .score-bar-row {
   display: grid;
-  grid-template-columns: 90px 1fr 40px;
+  grid-template-columns: 90px 1fr 40px 76px;
   align-items: center;
   gap: 0.75rem;
 }
@@ -556,6 +578,56 @@ a:hover { text-decoration: underline; }
 }
 
 .score-bar-value { font-size: 0.78rem; color: var(--gray-600); text-align: right; }
+.score-bar-weight { font-size: 0.72rem; color: var(--gray-400); text-align: right; }
+
+.evaluation-basis {
+  background: var(--gray-50);
+  border: 1px solid var(--gray-200);
+  border-radius: var(--radius);
+  padding: 1rem;
+}
+
+.basis-summary {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.75rem;
+}
+
+.basis-summary div {
+  background: var(--white);
+  border: 1px solid var(--gray-200);
+  border-radius: var(--radius);
+  padding: 0.75rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+}
+
+.basis-summary span {
+  color: var(--gray-600);
+  font-size: 0.78rem;
+}
+
+.basis-summary strong {
+  color: var(--gray-800);
+  font-size: 1rem;
+}
+
+.formula-text {
+  color: var(--gray-600);
+  font-family: ui-monospace, SFMono-Regular, Consolas, monospace;
+  font-size: 0.78rem;
+  overflow-wrap: anywhere;
+}
+
+.basis-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  padding-left: 1.1rem;
+  color: var(--gray-600);
+  font-size: 0.84rem;
+}
 
 .keyword-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; }
 .keyword-col { display: flex; flex-direction: column; gap: 0.4rem; }
@@ -604,6 +676,22 @@ a:hover { text-decoration: underline; }
   color: var(--gray-600);
   border-top: 1px solid var(--gray-100);
   padding-top: 1rem;
+}
+
+.extracted-answer {
+  border-top: 1px solid var(--gray-100);
+  padding-top: 1rem;
+}
+
+.extracted-answer p {
+  max-height: 180px;
+  overflow: auto;
+  background: var(--gray-50);
+  border: 1px solid var(--gray-200);
+  border-radius: var(--radius);
+  padding: 0.75rem;
+  color: var(--gray-600);
+  font-size: 0.84rem;
 }
 
 /* ── States ───────────────────────────────────────────────────────────────── */
@@ -659,17 +747,6 @@ a:hover { text-decoration: underline; }
 
 @keyframes spin { to { transform: rotate(360deg); } }
 .spin { animation: spin 1.5s linear infinite; }
-
-/* ── Responsive ───────────────────────────────────────────────────────────── */
-
-@media (max-width: 768px) {
-  .review-layout { grid-template-columns: 1fr; }
-  .form-row { grid-template-columns: 1fr; }
-  .keyword-grid { grid-template-columns: 1fr; }
-  .navbar-right .nav-name { display: none; }
-  .card-grid { grid-template-columns: 1fr; }
-}
-
 
 .analytics-stats-grid {
   display: grid;
@@ -754,7 +831,17 @@ a:hover { text-decoration: underline; }
   text-align: right;
 }
 
+/* ── Responsive ───────────────────────────────────────────────────────────── */
+
 @media (max-width: 768px) {
   .analytics-two-col { grid-template-columns: 1fr; }
   .analytics-stats-grid { grid-template-columns: 1fr 1fr; }
+  .review-layout { grid-template-columns: 1fr; }
+  .form-row { grid-template-columns: 1fr; }
+  .keyword-grid { grid-template-columns: 1fr; }
+  .score-bar-row { grid-template-columns: 80px 1fr 38px; }
+  .score-bar-weight { grid-column: 2 / -1; text-align: left; }
+  .basis-summary { grid-template-columns: 1fr; }
+  .navbar-right .nav-name { display: none; }
+  .card-grid { grid-template-columns: 1fr; }
 }

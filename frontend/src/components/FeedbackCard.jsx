@@ -1,4 +1,4 @@
-import { CheckCircle, XCircle, AlertCircle } from 'lucide-react';
+import { CheckCircle, XCircle, AlertCircle, Info } from 'lucide-react';
 
 export default function FeedbackCard({ feedbackJson, aiMarks, teacherMarks, totalMarks, confidence }) {
   if (!feedbackJson) return null;
@@ -11,10 +11,28 @@ export default function FeedbackCard({ feedbackJson, aiMarks, teacherMarks, tota
     return <p className="error">Could not parse feedback.</p>;
   }
 
-  const { keyword_analysis, sentence_analysis, score_breakdown, word_count_model, word_count_student } = feedback;
+  const {
+    keyword_analysis,
+    sentence_analysis,
+    score_breakdown,
+    scoring_weights,
+    mark_calculation,
+    word_count_model,
+    word_count_student,
+    extracted_student_answer,
+  } = feedback;
   const finalMarks = teacherMarks ?? aiMarks;
   const confidenceLabel = confidence >= 0.75 ? 'High' : confidence >= 0.5 ? 'Medium' : 'Low';
   const confidenceColor = confidence >= 0.75 ? 'green' : confidence >= 0.5 ? 'orange' : 'red';
+  const formatLabel = (key) => key.replace('_score', '').replace('_', ' ');
+  const scoreRows = score_breakdown
+    ? Object.entries(score_breakdown).map(([key, val]) => ({
+        key,
+        label: formatLabel(key),
+        value: Number(val) || 0,
+        weight: scoring_weights?.[key] ?? null,
+      }))
+    : [];
 
   return (
     <div className="feedback-card">
@@ -57,21 +75,54 @@ export default function FeedbackCard({ feedbackJson, aiMarks, teacherMarks, tota
         <div className="feedback-section">
           <h4>Score Breakdown</h4>
           <div className="score-bars">
-            {Object.entries(score_breakdown).map(([key, val]) => (
+            {scoreRows.map(({ key, label, value, weight }) => (
               <div key={key} className="score-bar-row">
                 <span className="score-bar-label">
-                  {key.replace('_score', '').replace('_', ' ')}
+                  {label}
                 </span>
                 <div className="score-bar-track">
                   <div
                     className="score-bar-fill"
-                    style={{ width: `${(val * 100).toFixed(0)}%` }}
+                    style={{ width: `${(value * 100).toFixed(0)}%` }}
                   />
                 </div>
-                <span className="score-bar-value">{(val * 100).toFixed(0)}%</span>
+                <span className="score-bar-value">{(value * 100).toFixed(0)}%</span>
+                {weight != null && (
+                  <span className="score-bar-weight">
+                    weight {(weight * 100).toFixed(0)}%
+                  </span>
+                )}
               </div>
             ))}
           </div>
+        </div>
+      )}
+
+      {mark_calculation && (
+        <div className="feedback-section evaluation-basis">
+          <h4><Info size={14} /> How Marks Were Allocated</h4>
+          <div className="basis-summary">
+            <div>
+              <span>Weighted score</span>
+              <strong>{((mark_calculation.weighted_score ?? 0) * 100).toFixed(1)}%</strong>
+            </div>
+            <div>
+              <span>Calculated marks</span>
+              <strong>
+                {(mark_calculation.awarded_marks ?? aiMarks)?.toFixed?.(1) ?? mark_calculation.awarded_marks}
+                {' / '}
+                {mark_calculation.total_marks ?? totalMarks}
+              </strong>
+            </div>
+          </div>
+          <p className="formula-text">{mark_calculation.formula}</p>
+          {mark_calculation.basis?.length > 0 && (
+            <ul className="basis-list">
+              {mark_calculation.basis.map((item) => (
+                <li key={item}>{item}</li>
+              ))}
+            </ul>
+          )}
         </div>
       )}
 
@@ -140,6 +191,13 @@ export default function FeedbackCard({ feedbackJson, aiMarks, teacherMarks, tota
             : 'N/A'}
         </strong></span>
       </div>
+
+      {extracted_student_answer && (
+        <div className="feedback-section extracted-answer">
+          <h4>Extracted Student Answer</h4>
+          <p>{extracted_student_answer}</p>
+        </div>
+      )}
 
     </div>
   );

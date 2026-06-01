@@ -1,8 +1,8 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import api from '../api/axios';
 import toast from 'react-hot-toast';
-import { useAuth } from '../context/AuthContext';
+import { useAuth } from '../context/useAuth';
 import { Plus, Clock, Users, FileText } from 'lucide-react';
 
 export default function ClassroomPage() {
@@ -15,9 +15,7 @@ export default function ClassroomPage() {
   const [exams, setExams] = useState([]);
   const [loading, setLoading] = useState(true);
 
-  useEffect(() => { fetchData(); }, [id]);
-
-  const fetchData = async () => {
+  const fetchData = useCallback(async () => {
     try {
       const [classRes, examRes] = await Promise.all([
         api.get(`/api/classrooms/${id}`),
@@ -30,7 +28,9 @@ export default function ClassroomPage() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [id]);
+
+  useEffect(() => { fetchData(); }, [fetchData]);
 
   const isPastDeadline = (deadline) => new Date(deadline) < new Date();
 

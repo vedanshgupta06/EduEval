@@ -57,6 +57,13 @@
 			<scope>runtime</scope>
 		</dependency>
 
+		<!-- In-memory database for Spring context tests -->
+		<dependency>
+			<groupId>com.h2database</groupId>
+			<artifactId>h2</artifactId>
+			<scope>test</scope>
+		</dependency>
+
 		<!-- JWT -->
 		<dependency>
 			<groupId>io.jsonwebtoken</groupId>

@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import api from '../api/axios';
 import toast from 'react-hot-toast';
@@ -13,9 +13,7 @@ export default function StudentDashboard() {
   const [joining, setJoining] = useState(false);
   const [showJoin, setShowJoin] = useState(false);
 
-  useEffect(() => { fetchData(); }, []);
-
-  const fetchData = async () => {
+  const fetchData = useCallback(async () => {
     try {
       const [classRes, progressRes] = await Promise.all([
         api.get('/api/student/classrooms'),
@@ -28,7 +26,9 @@ export default function StudentDashboard() {
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
+
+  useEffect(() => { fetchData(); }, [fetchData]);
 
   const joinClassroom = async (e) => {
     e.preventDefault();

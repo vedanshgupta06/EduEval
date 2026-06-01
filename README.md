@@ -1,16 +1,44 @@
-# React + Vite
+# EduEval
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+EduEval has three local services:
 
-Currently, two official plugins are available:
+- `frontend` - React/Vite app on port `5173`
+- `edueval-backend` - Spring Boot API on port `8080`
+- `edueval-ai` - Python/FastAPI evaluator on port `8000`
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Oxc](https://oxc.rs)
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/)
+## Run The Project
 
-## React Compiler
+Open three terminals from the project root.
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+### 1. Python evaluator
 
-## Expanding the ESLint configuration
+```powershell
+cd edueval-ai
+python -m venv .venv
+.\.venv\Scripts\Activate.ps1
+pip install -r requirements.txt
+python -m uvicorn main:app --host 127.0.0.1 --port 8000
+```
 
-If you are developing a production application, we recommend using TypeScript with type-aware lint rules enabled. Check out the [TS template](https://github.com/vitejs/vite/tree/main/packages/create-vite/template-react-ts) for information on how to integrate TypeScript and [`typescript-eslint`](https://typescript-eslint.io) in your project.
+### 2. Spring Boot backend
+
+```powershell
+cd edueval-backend
+.\mvnw.cmd spring-boot:run
+```
+
+### 3. React frontend
+
+```powershell
+cd frontend
+npm install
+npm run dev
+```
+
+Then open:
+
+```text
+http://localhost:5173
+```
+
+The frontend calls the backend at `http://localhost:8080`, and the backend calls the Python evaluator at `http://localhost:8000`.

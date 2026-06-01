@@ -1,8 +1,8 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import api from '../api/axios';
 import toast from 'react-hot-toast';
-import { CheckCircle, Clock, AlertCircle, Eye, Download } from 'lucide-react';
+import { CheckCircle, Clock, AlertCircle, Eye, RefreshCw, Download } from 'lucide-react';
 import { downloadReport } from '../api/reports';
 
 export default function ReviewQueuePage() {
@@ -13,9 +13,7 @@ export default function ReviewQueuePage() {
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState('ALL');
 
-  useEffect(() => { fetchData(); }, [examId]);
-
-  const fetchData = async () => {
+  const fetchData = useCallback(async () => {
     try {
       const [examRes, subRes] = await Promise.all([
         api.get(`/api/exams/${examId}`),
@@ -28,12 +26,20 @@ export default function ReviewQueuePage() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [examId]);
+
+  useEffect(() => { fetchData(); }, [fetchData]);
+
+  useEffect(() => {
+    if (!submissions.some((s) => s.status === 'PROCESSING')) return undefined;
+    const timer = setInterval(fetchData, 5000);
+    return () => clearInterval(timer);
+  }, [fetchData, submissions]);
 
   const statusIcon = (status) => {
     if (status === 'REVIEWED') return <CheckCircle size={14} className="icon-green" />;
     if (status === 'AI_EVALUATED') return <AlertCircle size={14} className="icon-orange" />;
-    if (status === 'PROCESSING') return <Clock size={14} className="icon-blue" />;
+    if (status === 'PROCESSING') return <Clock size={14} className="icon-blue spin" />;
     return <Clock size={14} className="icon-gray" />;
   };
 
@@ -62,19 +68,25 @@ export default function ReviewQueuePage() {
             {submissions.length} submission{submissions.length !== 1 ? 's' : ''}
           </p>
         </div>
-        <button
-          className="btn-secondary"
-          onClick={async () => {
-            try {
-              await downloadReport('exam', examId);
-              toast.success('Report downloaded!');
-            } catch {
-              toast.error('Failed to download report');
-            }
-          }}
-        >
-          <Download size={15} /> Download Report
-        </button>
+        <div className="page-actions">
+          <button className="btn-secondary" onClick={fetchData}>
+            <RefreshCw size={14} />
+            Refresh
+          </button>
+          <button
+            className="btn-secondary"
+            onClick={async () => {
+              try {
+                await downloadReport('exam', examId);
+                toast.success('Report downloaded!');
+              } catch {
+                toast.error('Failed to download report');
+              }
+            }}
+          >
+            <Download size={15} /> Download Report
+          </button>
+        </div>
       </div>
 
       {/* Filter tabs */}
@@ -131,10 +143,17 @@ export default function ReviewQueuePage() {
                     <button
                       className="btn-primary btn-sm"
                       onClick={() => navigate(`/teacher/review/${s.id}`)}
-                      disabled={s.status === 'PENDING' || s.status === 'PROCESSING'}
                     >
-                      <Eye size={13} />
-                      {s.status === 'REVIEWED' ? 'View' : 'Review'}
+                      {s.status === 'PROCESSING' ? (
+                        <RefreshCw size={13} className="spin" />
+                      ) : (
+                        <Eye size={13} />
+                      )}
+                      {s.status === 'PROCESSING'
+                        ? 'Loading'
+                        : s.status === 'REVIEWED'
+                          ? 'View'
+                          : 'Evaluate'}
                     </button>
                   </td>
                 </tr>

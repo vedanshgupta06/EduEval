@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import api from '../api/axios';
 import toast from 'react-hot-toast';
@@ -12,9 +12,7 @@ export default function TeacherDashboard() {
   const [className, setClassName] = useState('');
   const [creating, setCreating] = useState(false);
 
-  useEffect(() => { fetchClassrooms(); }, []);
-
-  const fetchClassrooms = async () => {
+  const fetchClassrooms = useCallback(async () => {
     try {
       const res = await api.get('/api/teacher/classrooms');
       setClassrooms(res.data);
@@ -23,7 +21,9 @@ export default function TeacherDashboard() {
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
+
+  useEffect(() => { fetchClassrooms(); }, [fetchClassrooms]);
 
   const createClassroom = async (e) => {
     e.preventDefault();

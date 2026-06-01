@@ -15,6 +15,7 @@ import SubmissionReviewPage from './pages/SubmissionReviewPage';
 import ExamSubmitPage from './pages/ExamSubmitPage';
 import ResultPage from './pages/ResultPage';
 import AnalyticsPage from './pages/AnalyticsPage';
+
 export default function App() {
   return (
     <AuthProvider>
@@ -50,6 +51,7 @@ export default function App() {
             <Route path="/teacher/classroom/:classroomId/analytics" element={
               <ProtectedRoute role="TEACHER"><AnalyticsPage /></ProtectedRoute>
             } />
+
             {/* Student routes */}
             <Route path="/student" element={
               <ProtectedRoute role="STUDENT"><StudentDashboard /></ProtectedRoute>

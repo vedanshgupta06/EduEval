@@ -21,7 +21,6 @@ import org.springframework.web.multipart.MultipartFile;
 
 import java.time.LocalDateTime;
 import java.util.List;
-import java.util.Optional;
 import java.util.UUID;
 import java.util.stream.Collectors;
 
@@ -30,14 +29,12 @@ import java.util.stream.Collectors;
 public class SubmissionService {
 
     private final SubmissionRepository submissionRepository;
+    private final EvaluationRepository evaluationRepository;
     private final ClassroomMemberRepository classroomMemberRepository;
     private final ExamService examService;
     private final FileStorageService fileStorageService;
     private final UserRepository userRepository;
     private final ApplicationContext applicationContext;
-    private final EvaluationRepository evaluationRepository; // ← add this
-
-    // ── Student ──────────────────────────────────────────────────────────────
 
     @Transactional
     public SubmissionResponse submitAnswerSheet(UUID examId, MultipartFile file) {
@@ -85,8 +82,6 @@ public class SubmissionService {
                 .stream().map(this::toResponse).collect(Collectors.toList());
     }
 
-    // ── Teacher ──────────────────────────────────────────────────────────────
-
     @Transactional(readOnly = true)
     public List<SubmissionResponse> getSubmissionsForExam(UUID examId) {
         Exam exam = examService.findById(examId);
@@ -103,14 +98,10 @@ public class SubmissionService {
         return toResponse(submissionRepository.save(submission));
     }
 
-    // ── Shared ───────────────────────────────────────────────────────────────
-
     @Transactional(readOnly = true)
     public SubmissionResponse getSubmissionById(UUID submissionId) {
         return toResponse(findById(submissionId));
     }
-
-    // ── Helpers ──────────────────────────────────────────────────────────────
 
     public Submission findById(UUID id) {
         return submissionRepository.findById(id)
@@ -130,27 +121,22 @@ public class SubmissionService {
                 .orElseThrow(() -> new ResourceNotFoundException("Authenticated user not found"));
     }
 
-    private SubmissionResponse toResponse(Submission s) {
-        Double aiMarks = null;
-        Double finalMarks = null;
-
-        Optional<Evaluation> eval = evaluationRepository.findBySubmissionId(s.getId());
-        if (eval.isPresent()) {
-            aiMarks = eval.get().getAiMarks();
-            finalMarks = eval.get().getFinalMarks();
-        }
+    private SubmissionResponse toResponse(Submission submission) {
+        Evaluation evaluation = evaluationRepository.findBySubmission(submission).orElse(null);
 
         return new SubmissionResponse(
-                s.getId(),
-                s.getExam().getId(),
-                s.getExam().getTitle(),
-                s.getStudent().getId(),
-                s.getStudent().getName(),
-                s.getFileUrl(),
-                s.getStatus(),
-                s.getSubmittedAt(),
-                aiMarks,
-                finalMarks
+                submission.getId(),
+                submission.getExam().getId(),
+                submission.getExam().getTitle(),
+                submission.getStudent().getId(),
+                submission.getStudent().getName(),
+                submission.getExam().getClassroom().getClassName(),
+                submission.getExam().getTotalMarks(),
+                submission.getFileUrl(),
+                submission.getStatus(),
+                evaluation != null ? evaluation.getAiMarks() : null,
+                evaluation != null ? evaluation.getFinalMarks() : null,
+                submission.getSubmittedAt()
         );
     }
 }

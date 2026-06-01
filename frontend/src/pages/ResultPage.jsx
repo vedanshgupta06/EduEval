@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import api from '../api/axios';
 import toast from 'react-hot-toast';
@@ -12,9 +12,7 @@ export default function ResultPage() {
   const [evaluation, setEvaluation] = useState(null);
   const [loading, setLoading] = useState(true);
 
-  useEffect(() => { fetchData(); }, [submissionId]);
-
-  const fetchData = async () => {
+  const fetchData = useCallback(async () => {
     try {
       const [subRes, evalRes] = await Promise.all([
         api.get(`/api/submissions/${submissionId}`),
@@ -27,7 +25,9 @@ export default function ResultPage() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [submissionId]);
+
+  useEffect(() => { fetchData(); }, [fetchData]);
 
   if (loading) return <div className="loading">Loading result...</div>;
 
@@ -90,7 +90,7 @@ export default function ResultPage() {
         feedbackJson={evaluation.aiFeedbackJson}
         aiMarks={evaluation.aiMarks}
         teacherMarks={evaluation.teacherMarks}
-        totalMarks={evaluation.totalMarks}
+        totalMarks={submission.totalMarks}
         confidence={evaluation.aiConfidence}
       />
     </div>
