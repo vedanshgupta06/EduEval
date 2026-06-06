@@ -19,13 +19,21 @@ public class SubmissionController {
 
     private final SubmissionService submissionService;
 
-    // POST /api/student/exams/{id}/submit  (multipart)
+    // POST /api/student/exams/{id}/submit  (multipart — existing single-answer)
     @PostMapping("/api/student/exams/{examId}/submit")
     public ResponseEntity<SubmissionResponse> submit(
             @PathVariable UUID examId,
             @RequestParam("file") MultipartFile file) {
         return ResponseEntity.status(HttpStatus.CREATED)
                 .body(submissionService.submitAnswerSheet(examId, file));
+    }
+
+    // POST /api/student/exams/{id}/submit-multi  (NEW — multi-question, no file)
+    // Creates the parent Submission row so the student can upload per-question files.
+    @PostMapping("/api/student/exams/{examId}/submit-multi")
+    public ResponseEntity<SubmissionResponse> submitMulti(@PathVariable UUID examId) {
+        return ResponseEntity.status(HttpStatus.CREATED)
+                .body(submissionService.createMultiQuestionSubmission(examId));
     }
 
     // GET /api/student/submissions

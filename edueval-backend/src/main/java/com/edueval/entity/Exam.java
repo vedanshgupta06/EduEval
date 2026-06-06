@@ -5,6 +5,8 @@ import lombok.*;
 import org.hibernate.annotations.CreationTimestamp;
 
 import java.time.LocalDateTime;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.UUID;
 
 @Entity
@@ -30,6 +32,14 @@ public class Exam {
 
     @Column(nullable = false)
     private LocalDateTime deadline;
+
+    @Column(name = "is_multi_question", nullable = false)
+    @Builder.Default
+    private Boolean isMultiQuestion = false;
+ 
+    @OneToMany(mappedBy = "exam", cascade = CascadeType.ALL, orphanRemoval = true, fetch = FetchType.LAZY)
+    @OrderBy("questionNo ASC")
+    private List<ExamQuestion> questions = new ArrayList<>();
 
     // Path to uploaded model answer file (PDF/image)
     private String modelAnswerUrl;

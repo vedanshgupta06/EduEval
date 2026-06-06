@@ -32,7 +32,7 @@ public class Submission {
     private Exam exam;
 
     // Path to stored answer sheet (PDF or image)
-    @Column(nullable = false)
+   @Column(nullable = true) 
     private String fileUrl;
 
     @Enumerated(EnumType.STRING)

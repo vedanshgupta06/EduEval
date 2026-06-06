@@ -14,6 +14,8 @@ import org.springframework.web.bind.annotation.RestController;
 
 import jakarta.servlet.http.HttpServletRequest;
 import java.net.MalformedURLException;
+import java.net.URLDecoder;
+import java.nio.charset.StandardCharsets;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 
@@ -36,8 +38,12 @@ public class FileController {
     @GetMapping("/**")
     public ResponseEntity<Resource> serveFile(HttpServletRequest request) {
         // Extract path after /api/files/
-        String requestPath = request.getRequestURI();
-        String relativePath = requestPath.substring("/api/files/".length());
+         String requestPath = request.getRequestURI();
+    String relativePath = requestPath.substring("/api/files/".length());
+    
+    // Decode URL-encoded characters (%20 → space, etc.)
+    relativePath = URLDecoder.decode(relativePath, StandardCharsets.UTF_8);
+    
 
         try {
             Path filePath = uploadRoot.resolve(relativePath).normalize();

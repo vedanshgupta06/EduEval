@@ -36,6 +36,8 @@ public class SubmissionService {
     private final UserRepository userRepository;
     private final ApplicationContext applicationContext;
 
+    // ── Student ──────────────────────────────────────────────────────────────
+
     @Transactional
     public SubmissionResponse submitAnswerSheet(UUID examId, MultipartFile file) {
         User student = currentUser();
@@ -73,6 +75,43 @@ public class SubmissionService {
         applicationContext.getBean(EvaluationService.class).initiateEvaluation(saved);
 
         return toResponse(saved);
+    }
+
+    // ── NEW: Create empty submission for multi-question exams ─────────────────
+    // Called before per-question file uploads so we have a submission ID to
+    // attach question submissions to. No file required, no AI triggered yet.
+
+    @Transactional
+    public SubmissionResponse createMultiQuestionSubmission(UUID examId) {
+        User student = currentUser();
+        Exam exam = examService.findById(examId);
+
+        boolean isMember = classroomMemberRepository
+                .existsByClassroomAndStudent(exam.getClassroom(), student);
+        if (!isMember) {
+            throw new UnauthorizedActionException(
+                    "You are not enrolled in this exam's classroom");
+        }
+
+        if (exam.getDeadline().isBefore(LocalDateTime.now())) {
+            throw new IllegalArgumentException(
+                    "The submission deadline for this exam has passed");
+        }
+
+        // If submission already exists (page reload), return the existing one
+        Optional<Submission> existing = submissionRepository.findByStudentAndExam(student, exam);
+        if (existing.isPresent()) {
+            return toResponse(existing.get());
+        }
+
+        Submission submission = Submission.builder()
+                .student(student)
+                .exam(exam)
+                .fileUrl(null)                      // no file for multi-question
+                .status(SubmissionStatus.PENDING)
+                .build();
+
+        return toResponse(submissionRepository.save(submission));
     }
 
     @Transactional(readOnly = true)

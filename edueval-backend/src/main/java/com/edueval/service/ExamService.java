@@ -3,11 +3,13 @@ package com.edueval.service;
 import com.edueval.dto.request.CreateExamRequest;
 import com.edueval.dto.request.UpdateExamRequest;
 import com.edueval.dto.response.ExamResponse;
+import com.edueval.dto.response.QuestionResponse;
 import com.edueval.entity.Classroom;
 import com.edueval.entity.Evaluation;
 import com.edueval.entity.Exam;
 import com.edueval.entity.Submission;
 import com.edueval.entity.User;
+import com.edueval.enums.SubmissionStatus;
 import com.edueval.exception.ResourceNotFoundException;
 import com.edueval.exception.UnauthorizedActionException;
 import com.edueval.repository.ClassroomRepository;
@@ -33,6 +35,7 @@ public class ExamService {
     private final SubmissionRepository submissionRepository;
     private final EvaluationRepository evaluationRepository;
     private final UserRepository userRepository;
+    private final ExamQuestionService examQuestionService;
 
     // ── Teacher ──────────────────────────────────────────────────────────────
 
@@ -41,16 +44,32 @@ public class ExamService {
         Classroom classroom = findClassroom(classroomId);
         requireClassroomOwnership(classroom);
 
+        boolean isMulti = Boolean.TRUE.equals(request.isMultiQuestion())
+                && request.questions() != null
+                && !request.questions().isEmpty();
+
+        // Auto-sum marks from questions; fall back to explicit totalMarks for single mode
+        int totalMarks = isMulti
+                ? request.questions().stream().mapToInt(q -> q.getMarks()).sum()
+                : (request.totalMarks() != null ? request.totalMarks() : 0);
+
         Exam exam = Exam.builder()
                 .classroom(classroom)
                 .title(request.title())
-                .totalMarks(request.totalMarks())
+                .totalMarks(totalMarks)
                 .deadline(request.deadline())
                 .modelAnswerUrl(request.modelAnswerUrl())
                 .modelAnswerText(request.modelAnswerText())
+                .isMultiQuestion(isMulti)
                 .build();
 
-        return toResponse(examRepository.save(exam));
+        examRepository.save(exam);
+
+        if (isMulti) {
+            examQuestionService.saveQuestionsForExam(exam, request.questions());
+        }
+
+        return toResponse(exam);
     }
 
     @Transactional
@@ -89,7 +108,20 @@ public class ExamService {
 
     @Transactional(readOnly = true)
     public ExamResponse getExamById(UUID examId) {
-        return toResponse(findById(examId));
+        Exam exam = findById(examId);
+        ExamResponse response = toResponse(exam);
+
+        // Attach questions list for multi-question exams
+        if (Boolean.TRUE.equals(exam.getIsMultiQuestion())) {
+            List<QuestionResponse> questions = examQuestionService
+                    .getQuestionsForExam(examId)
+                    .stream()
+                    .map(examQuestionService::toResponse)
+                    .toList();
+            response.setQuestions(questions);
+        }
+
+        return response;
     }
 
     // ── Helpers ──────────────────────────────────────────────────────────────
@@ -130,7 +162,8 @@ public class ExamService {
                 e.getClassroom().getClassName(),
                 e.getClassroom().getTeacher().getName(),
                 submissionCount,
-                e.getCreatedAt()
+                e.getCreatedAt(),
+                e.getIsMultiQuestion()
         );
     }
 }

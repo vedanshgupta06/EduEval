@@ -1,0 +1,63 @@
+package com.edueval.controller;
+
+import com.edueval.service.QuestionSubmissionService;
+import lombok.RequiredArgsConstructor;
+import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.web.bind.annotation.*;
+import org.springframework.web.multipart.MultipartFile;
+
+import java.util.Map;
+import java.util.UUID;
+
+@RestController
+@RequestMapping("/api")
+@RequiredArgsConstructor
+public class QuestionSubmissionController {
+
+    private final QuestionSubmissionService questionSubmissionService;
+
+    /**
+     * POST /api/submissions/{submissionId}/questions/{questionId}/upload
+     * Student uploads a file for one question.
+     * Can be called repeatedly (re-upload) before evaluation is triggered.
+     */
+    @PostMapping("/submissions/{submissionId}/questions/{questionId}/upload")
+    @PreAuthorize("hasRole('STUDENT')")
+    public ResponseEntity<?> uploadQuestionFile(
+            @PathVariable UUID submissionId,
+            @PathVariable UUID questionId,
+            @RequestParam("file") MultipartFile file) throws Exception {
+
+        var qs = questionSubmissionService.uploadQuestionFile(submissionId, questionId, file);
+        return ResponseEntity.ok(Map.of(
+                "questionSubmissionId", qs.getId(),
+                "status", qs.getStatus(),
+                "fileUrl", qs.getFileUrl()
+        ));
+    }
+
+    /**
+     * POST /api/submissions/{submissionId}/evaluate-questions
+     * Called after the student finishes uploading all question files.
+     * Triggers AI evaluation for every question in this submission.
+     * Runs synchronously (small exam); make async if needed.
+     */
+    @PostMapping("/submissions/{submissionId}/evaluate-questions")
+    @PreAuthorize("hasRole('STUDENT')")
+    public ResponseEntity<?> triggerEvaluation(@PathVariable UUID submissionId) {
+        questionSubmissionService.evaluateAllQuestions(submissionId);
+        return ResponseEntity.ok(Map.of("message", "Evaluation triggered for all questions"));
+    }
+
+    /**
+     * POST /api/teacher/question-submissions/{id}/re-evaluate
+     * Teacher triggers re-evaluation for a single question.
+     */
+    @PostMapping("/teacher/question-submissions/{id}/re-evaluate")
+    @PreAuthorize("hasRole('TEACHER')")
+    public ResponseEntity<?> reEvaluate(@PathVariable UUID id) {
+        questionSubmissionService.reEvaluateSingle(id);
+        return ResponseEntity.ok(Map.of("message", "Re-evaluation triggered"));
+    }
+}
