@@ -20,27 +20,24 @@ def extract_text_from_file(file_path: str, spring_boot_base_url: str) -> str:
     """
     Reads the file directly from disk — both services run on the same machine.
     """
-    import os
-    
-    # Look for the file in common upload locations
     possible_paths = [
-    os.path.join(r"C:\Users\vedan\Nlp_Answersheet_Evaluator_Backend\uploads", file_path),
-    os.path.join(r"C:\Users\vedan\Nlp_Answersheet_Evaluator_Backend\edueval-backend\uploads", file_path),
-    os.path.join("./uploads", file_path),
-    file_path,
-]
-    
+        file_path,  # absolute path from Spring Boot — matches immediately
+        os.path.join(r"C:\Users\vedan\edueval-frontend\edueval-backend\uploads", file_path),
+        os.path.join(r"C:\Users\vedan\Nlp_Answersheet_Evaluator_Backend\uploads", file_path),
+        os.path.join("./uploads", file_path),
+    ]
+
     local_path = None
     for path in possible_paths:
         if os.path.exists(path):
             local_path = path
             break
-    
+
     if not local_path:
         raise ValueError(f"File not found on disk: {file_path}")
-    
+
     ext = Path(local_path).suffix.lower()
-    
+
     if ext == ".pdf":
         return _extract_from_pdf(local_path)
     elif ext in {".jpg", ".jpeg", ".png", ".webp"}:
@@ -48,13 +45,13 @@ def extract_text_from_file(file_path: str, spring_boot_base_url: str) -> str:
     else:
         raise ValueError(f"Unsupported file type: {ext}")
 
+
 def _download_file(url: str, directory: str) -> str:
     """Downloads file from URL and saves to temp directory."""
     with httpx.Client(timeout=30) as client:
         response = client.get(url)
         response.raise_for_status()
 
-    # Determine filename from URL
     filename = url.split("/")[-1]
     local_path = os.path.join(directory, filename)
 
@@ -81,14 +78,11 @@ def _extract_from_pdf(pdf_path: str) -> str:
     pages_text = []
 
     for page_num, page in enumerate(doc):
-        # Try direct text extraction first (faster, more accurate)
         text = page.get_text().strip()
         if len(text) > 50:
-            # Page has selectable text — use it directly
             pages_text.append(text)
         else:
-            # Scanned page — render to image and OCR
-            mat = fitz.Matrix(2.0, 2.0)   # 2x zoom for better OCR accuracy
+            mat = fitz.Matrix(2.0, 2.0)
             pix = page.get_pixmap(matrix=mat)
 
             with tempfile.NamedTemporaryFile(suffix=".png", delete=False) as tmp:
