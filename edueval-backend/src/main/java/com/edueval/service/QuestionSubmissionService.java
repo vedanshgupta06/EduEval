@@ -146,8 +146,7 @@ public QuestionSubmission uploadQuestionFile(UUID submissionId,
             questionEvaluationRepository.save(eval);
             qs.setStatus("AI_EVALUATED");
             questionSubmissionRepository.save(qs);
-            body.put("file_path", uploadDir + "/" + qs.getFileUrl());
-log.info("Sending file_path to AI: {}", uploadDir + "/" + qs.getFileUrl()); 
+
         } catch (Exception e) {
             log.error("AI evaluation failed for QuestionSubmission {}: {}", qs.getId(), e.getMessage());
             qs.setStatus("PENDING");
