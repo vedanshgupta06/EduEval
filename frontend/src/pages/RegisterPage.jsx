@@ -15,6 +15,7 @@ export default function RegisterPage() {
     role: 'STUDENT',
   });
   const [loading, setLoading] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -34,76 +35,101 @@ export default function RegisterPage() {
 
   return (
     <div className="auth-page">
-      <div className="auth-card">
-        <div className="auth-logo">
-          <BookOpen size={32} />
-          <h1>EduEval</h1>
-        </div>
-        <h2>Create account</h2>
-        <p className="auth-subtitle">Join as a teacher or student</p>
-
-        <form onSubmit={handleSubmit} className="auth-form">
-          <div className="form-group">
-            <label>Full Name</label>
-            <input
-              type="text"
-              placeholder="Your name"
-              value={form.name}
-              onChange={(e) => setForm({ ...form, name: e.target.value })}
-              required
-            />
+      <div className="auth-shell">
+        <section className="auth-welcome">
+          <div className="auth-brand">
+            <BookOpen size={30} />
+            <span>EduEval</span>
           </div>
-
-          <div className="form-group">
-            <label>Email</label>
-            <input
-              type="email"
-              placeholder="you@example.com"
-              value={form.email}
-              onChange={(e) => setForm({ ...form, email: e.target.value })}
-              required
-            />
+          <div className="auth-welcome-copy">
+            <h1>JOIN US</h1>
+            <h2>Evaluate Answers Smarter</h2>
+            <p>
+              Create classrooms, submit handwritten sheets, and receive clear
+              OCR-backed evaluation feedback for every question.
+            </p>
           </div>
+        </section>
 
-          <div className="form-group">
-            <label>Password</label>
-            <input
-              type="password"
-              placeholder="Min 6 characters"
-              value={form.password}
-              onChange={(e) => setForm({ ...form, password: e.target.value })}
-              required
-            />
+        <div className="auth-card">
+          <div className="auth-logo">
+            <BookOpen size={28} />
+            <h1>EduEval</h1>
           </div>
+          <h2>Create account</h2>
+          <p className="auth-subtitle">Join as a teacher or student</p>
 
-          <div className="form-group">
-            <label>I am a</label>
-            <div className="role-toggle">
-              <button
-                type="button"
-                className={`role-btn ${form.role === 'STUDENT' ? 'active' : ''}`}
-                onClick={() => setForm({ ...form, role: 'STUDENT' })}
-              >
-                Student
-              </button>
-              <button
-                type="button"
-                className={`role-btn ${form.role === 'TEACHER' ? 'active' : ''}`}
-                onClick={() => setForm({ ...form, role: 'TEACHER' })}
-              >
-                Teacher
-              </button>
+          <form onSubmit={handleSubmit} className="auth-form">
+            <div className="form-group">
+              <label>Full Name</label>
+              <input
+                type="text"
+                placeholder="Your name"
+                value={form.name}
+                onChange={(e) => setForm({ ...form, name: e.target.value })}
+                required
+              />
             </div>
-          </div>
 
-          <button type="submit" className="btn-primary" disabled={loading}>
-            {loading ? 'Creating account...' : 'Create account'}
-          </button>
-        </form>
+            <div className="form-group">
+              <label>Email</label>
+              <input
+                type="email"
+                placeholder="you@example.com"
+                value={form.email}
+                onChange={(e) => setForm({ ...form, email: e.target.value })}
+                required
+              />
+            </div>
 
-        <p className="auth-switch">
-          Already have an account? <Link to="/login">Sign in</Link>
-        </p>
+            <div className="form-group">
+              <label>Password</label>
+              <div className="password-field">
+                <input
+                  type={showPassword ? 'text' : 'password'}
+                  placeholder="Min 6 characters"
+                  value={form.password}
+                  onChange={(e) => setForm({ ...form, password: e.target.value })}
+                  required
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowPassword((value) => !value)}
+                >
+                  {showPassword ? 'HIDE' : 'SHOW'}
+                </button>
+              </div>
+            </div>
+
+            <div className="form-group">
+              <label>I am a</label>
+              <div className="role-toggle">
+                <button
+                  type="button"
+                  className={`role-btn ${form.role === 'STUDENT' ? 'active' : ''}`}
+                  onClick={() => setForm({ ...form, role: 'STUDENT' })}
+                >
+                  Student
+                </button>
+                <button
+                  type="button"
+                  className={`role-btn ${form.role === 'TEACHER' ? 'active' : ''}`}
+                  onClick={() => setForm({ ...form, role: 'TEACHER' })}
+                >
+                  Teacher
+                </button>
+              </div>
+            </div>
+
+            <button type="submit" className="btn-primary auth-submit" disabled={loading}>
+              {loading ? 'Creating account...' : 'Create account'}
+            </button>
+          </form>
+
+          <p className="auth-switch">
+            Already have an account? <Link to="/login">Sign in</Link>
+          </p>
+        </div>
       </div>
     </div>
   );
