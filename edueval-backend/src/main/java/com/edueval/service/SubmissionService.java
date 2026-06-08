@@ -108,7 +108,7 @@ public class SubmissionService {
         Submission submission = Submission.builder()
                 .student(student)
                 .exam(exam)
-                .fileUrl(null)                      // no file for multi-question
+                .fileUrl("")                        // real answer-sheet URL is added after upload
                 .status(SubmissionStatus.PENDING)
                 .build();
 

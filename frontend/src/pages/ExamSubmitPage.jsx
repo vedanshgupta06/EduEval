@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import api from '../api/axios';
+import api, { getApiErrorMessage } from '../api/axios';
 import toast from 'react-hot-toast';
 import { Upload, FileText, Clock, CheckCircle } from 'lucide-react';
 
@@ -13,13 +13,25 @@ export default function ExamSubmitPage() {
   const [submissionId, setSubmissionId] = useState(null);
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
+  const [loadError, setLoadError] = useState('');
 
   // Single-answer mode
   const [file, setFile] = useState(null);
   const [dragOver, setDragOver] = useState(false);
 
-  // Multi-question mode: { [questionId]: { file, status: 'idle'|'uploading'|'done'|'error' } }
-  const [qFiles, setQFiles] = useState({});
+  // Multi-question mode: one answer sheet contains all answers.
+  const [multiFile, setMultiFile] = useState(null);
+  const [multiUploadStatus, setMultiUploadStatus] = useState('idle');
+
+  const ensureMultiSubmission = async () => {
+    if (submissionId) return submissionId;
+
+    const { data: sub } = await api.post(
+      `/api/student/exams/${examId}/submit-multi`
+    );
+    setSubmissionId(sub.id);
+    return sub.id;
+  };
 
   // ── Load exam ─────────────────────────────────────────────────────────────
   useEffect(() => {
@@ -31,19 +43,17 @@ export default function ExamSubmitPage() {
         if (examData.isMultiQuestion) {
           const { data: qData } = await api.get(`/api/exams/${examId}/questions`);
           setQuestions(qData);
-          const init = {};
-          qData.forEach(q => { init[q.id] = { file: null, status: 'idle' }; });
-          setQFiles(init);
 
-          // Create the parent submission row immediately so we have an ID
-         const { data: sub } = await api.post(
+          // Create or recover the parent submission row so uploads have an ID.
+          const { data: sub } = await api.post(
             `/api/student/exams/${examId}/submit-multi`
           );
-          console.log('Submission created:', sub.id);
           setSubmissionId(sub.id);
         }
-      } catch {
-        toast.error('Failed to load exam');
+      } catch (err) {
+        const message = getApiErrorMessage(err, 'Failed to load exam');
+        setLoadError(message);
+        toast.error(message);
       } finally {
         setLoading(false);
       }
@@ -81,50 +91,52 @@ export default function ExamSubmitPage() {
   };
 
   // ── Multi-question: upload one question file ──────────────────────────────
-  const uploadQuestionFile = async (questionId) => {
-    const state = qFiles[questionId];
-    if (!state?.file) return;
+  const uploadMultiAnswerSheet = async (existingSubmissionId = null) => {
+    if (!multiFile) return false;
 
-    setQFiles(prev => ({ ...prev, [questionId]: { ...prev[questionId], status: 'uploading' } }));
-
+    setMultiUploadStatus('uploading');
     const form = new FormData();
-    form.append('file', state.file);
+    form.append('file', multiFile);
 
     try {
+      const activeSubmissionId = existingSubmissionId || await ensureMultiSubmission();
+
       await api.post(
-        `/api/submissions/${submissionId}/questions/${questionId}/upload`,
+        `/api/submissions/${activeSubmissionId}/questions/upload-all`,
         form,
         { headers: { 'Content-Type': 'multipart/form-data' } }
       );
-      setQFiles(prev => ({ ...prev, [questionId]: { ...prev[questionId], status: 'done' } }));
-      toast.success(`Question ${questions.find(q => q.id === questionId)?.questionNo} uploaded`);
-    } catch {
-      setQFiles(prev => ({ ...prev, [questionId]: { ...prev[questionId], status: 'error' } }));
-      toast.error('Upload failed — try again');
+      setMultiUploadStatus('done');
+      toast.success('Answer sheet uploaded');
+      return true;
+    } catch (err) {
+      setMultiUploadStatus('error');
+      toast.error(getApiErrorMessage(err, 'Upload failed - try again'));
+      return false;
     }
   };
 
   // ── Multi-question: final submit → trigger AI evaluation ─────────────────
   const handleMultiSubmit = async () => {
-    // Auto-upload any files not yet uploaded
-    for (const q of questions) {
-      if (qFiles[q.id]?.file && qFiles[q.id]?.status !== 'done') {
-        await uploadQuestionFile(q.id);
-      }
-    }
-
-    const uploadedCount = questions.filter(q => qFiles[q.id]?.status === 'done').length;
-    if (uploadedCount === 0) {
-      return toast.error('Upload at least one answer before submitting');
-    }
-
     setSubmitting(true);
     try {
-      await api.post(`/api/submissions/${submissionId}/evaluate-questions`);
+      const activeSubmissionId = await ensureMultiSubmission();
+
+      if (!multiFile && multiUploadStatus !== 'done') {
+        toast.error('Upload at least one answer before submitting');
+        return;
+      }
+
+      if (multiUploadStatus !== 'done') {
+        const uploaded = await uploadMultiAnswerSheet(activeSubmissionId);
+        if (!uploaded) return;
+      }
+
+      await api.post(`/api/submissions/${activeSubmissionId}/evaluate-questions`);
       toast.success('Submitted! AI evaluation in progress...');
-      navigate(`/student/result/${submissionId}`);
+      navigate(`/student/result/${activeSubmissionId}`);
     } catch (err) {
-      toast.error(err.response?.data?.message || 'Submission failed');
+      toast.error(getApiErrorMessage(err, 'Submission failed'));
     } finally {
       setSubmitting(false);
     }
@@ -132,9 +144,9 @@ export default function ExamSubmitPage() {
 
   // ── Render ────────────────────────────────────────────────────────────────
   if (loading) return <div className="loading">Loading exam...</div>;
-  if (!exam)   return <div className="error">Exam not found</div>;
+  if (!exam)   return <div className="error">{loadError || 'Exam not found'}</div>;
 
-  const uploadedCount = questions.filter(q => qFiles[q.id]?.status === 'done').length;
+  const uploadedCount = multiUploadStatus === 'done' ? questions.length : 0;
 
   return (
     <div className="page">
@@ -219,67 +231,51 @@ export default function ExamSubmitPage() {
         {exam.isMultiQuestion && (
           <div className="submit-form">
             <p className="field-hint" style={{ marginBottom: '1.25rem', color: '#4f46e5' }}>
-              Upload one file per question. Skipped questions receive 0 marks.
+              Upload one answer sheet containing all answers. Label answers as Q1, Q2, Q3, etc. for best evaluation.
             </p>
 
-            {questions.map((q) => {
-              const state = qFiles[q.id] || {};
-              return (
-                <div key={q.id} className="card" style={{ marginBottom: '1rem', padding: '1.25rem' }}>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '0.5rem' }}>
-                    <div>
-                      <strong style={{ color: 'var(--primary, #4f46e5)' }}>
-                        Q{q.questionNo}
-                      </strong>
-                      <span className="field-hint" style={{ marginLeft: '0.5rem' }}>
-                        {q.marks} marks
-                      </span>
-                    </div>
-                    {state.status === 'done' && (
-                      <span style={{ color: '#16a34a', display: 'flex', alignItems: 'center', gap: '0.25rem', fontSize: '0.85rem' }}>
-                        <CheckCircle size={14} /> Uploaded
-                      </span>
-                    )}
-                    {state.status === 'error' && (
-                      <span style={{ color: '#dc2626', fontSize: '0.85rem' }}>Upload failed</span>
-                    )}
-                  </div>
+            <div style={{ marginBottom: '1.25rem' }}>
+              <label>Upload Answer Sheet</label>
+              <p className="field-hint">One PDF, JPEG, PNG or WEBP file for all {questions.length} questions</p>
+              <input
+                type="file"
+                accept=".pdf,.jpg,.jpeg,.png,.webp"
+                onChange={(e) => {
+                  setMultiFile(e.target.files[0]);
+                  setMultiUploadStatus('idle');
+                }}
+                style={{ fontSize: '0.9rem', marginTop: '0.5rem' }}
+              />
+              {multiFile && (
+                <p className="field-hint" style={{ marginTop: '0.5rem' }}>
+                  Selected: {multiFile.name} ({(multiFile.size / 1024 / 1024).toFixed(2)} MB)
+                </p>
+              )}
+              {multiUploadStatus === 'done' && (
+                <p style={{ color: '#16a34a', display: 'flex', alignItems: 'center', gap: '0.25rem', fontSize: '0.85rem', marginTop: '0.5rem' }}>
+                  <CheckCircle size={14} /> Uploaded for all questions
+                </p>
+              )}
+              {multiUploadStatus === 'error' && (
+                <p style={{ color: '#dc2626', fontSize: '0.85rem', marginTop: '0.5rem' }}>Upload failed</p>
+              )}
+            </div>
 
-                  <p style={{ fontSize: '0.9rem', color: '#374151', marginBottom: '0.75rem' }}>
+            <div style={{ display: 'grid', gap: '0.75rem', marginBottom: '1rem' }}>
+              {questions.map((q) => (
+                <div key={q.id} className="card" style={{ padding: '1rem' }}>
+                  <strong style={{ color: 'var(--primary, #4f46e5)' }}>Q{q.questionNo}</strong>
+                  <span className="field-hint" style={{ marginLeft: '0.5rem' }}>{q.marks} marks</span>
+                  <p style={{ fontSize: '0.9rem', color: '#374151', marginTop: '0.5rem' }}>
                     {q.questionText}
                   </p>
-
-                  <div style={{ display: 'flex', gap: '0.75rem', alignItems: 'center', flexWrap: 'wrap' }}>
-                    <input
-                      type="file"
-                      accept=".pdf,.jpg,.jpeg,.png,.webp"
-                      onChange={(e) =>
-                        setQFiles(prev => ({
-                          ...prev,
-                          [q.id]: { file: e.target.files[0], status: 'idle' },
-                        }))
-                      }
-                      style={{ fontSize: '0.85rem' }}
-                    />
-                    {state.file && state.status !== 'done' && (
-                      <button
-                        type="button"
-                        className="btn-secondary"
-                        style={{ padding: '0.35rem 0.9rem', fontSize: '0.85rem' }}
-                        disabled={state.status === 'uploading'}
-                        onClick={() => uploadQuestionFile(q.id)}
-                      >
-                        {state.status === 'uploading' ? 'Uploading...' : 'Upload'}
-                      </button>
-                    )}
-                  </div>
                 </div>
-              );
-            })}
+              ))}
+            </div>
 
             <p className="field-hint" style={{ marginBottom: '1rem' }}>
               {uploadedCount}/{questions.length} questions uploaded
-              {uploadedCount < questions.length && ' · unuploaded questions = 0 marks'}
+              {uploadedCount < questions.length && ' - selected sheet will be evaluated for every question'}
             </p>
 
             <div className="form-actions">
@@ -289,7 +285,7 @@ export default function ExamSubmitPage() {
               <button
                 type="button"
                 className="btn-primary"
-                disabled={submitting || uploadedCount === 0}
+                disabled={submitting || (!multiFile && multiUploadStatus !== 'done')}
                 onClick={handleMultiSubmit}
               >
                 {submitting ? 'Submitting...' : 'Submit All & Evaluate'}

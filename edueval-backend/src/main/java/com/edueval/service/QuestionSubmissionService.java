@@ -9,12 +9,12 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.*;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.client.RestTemplate;
 import org.springframework.web.multipart.MultipartFile;
 
-import java.io.IOException;
 import java.nio.file.*;
 import java.util.*;
 
@@ -28,6 +28,7 @@ public class QuestionSubmissionService {
     private final ExamQuestionRepository examQuestionRepository;
     private final SubmissionRepository submissionRepository;
     private final UserRepository userRepository;
+    private final FileStorageService fileStorageService;
     private final ObjectMapper objectMapper;
 
     @Value("${app.file-storage.upload-dir:./uploads}")
@@ -39,37 +40,45 @@ public class QuestionSubmissionService {
     // ── 1. Student uploads file for one question ──────────────────────────────
 
     @Transactional
-public QuestionSubmission uploadQuestionFile(UUID submissionId,
-                                              UUID questionId,
-                                              MultipartFile file) throws IOException {
+    public QuestionSubmission uploadQuestionFile(UUID submissionId,
+                                                 UUID questionId,
+                                                 MultipartFile file) {
 
-    Submission submission = submissionRepository.findById(submissionId)
-            .orElseThrow(() -> new EntityNotFoundException("Submission not found"));
+        Submission submission = requireStudentSubmission(submissionId);
+        ExamQuestion question = examQuestionRepository.findById(questionId)
+                .orElseThrow(() -> new EntityNotFoundException("Question not found"));
 
-    ExamQuestion question = examQuestionRepository.findById(questionId)
-            .orElseThrow(() -> new EntityNotFoundException("Question not found"));
+        UUID examId = submission.getExam().getId();
+        if (!question.getExam().getId().equals(examId)) {
+            throw new IllegalArgumentException("Question does not belong to this exam");
+        }
 
-    UUID examId = submission.getExam().getId();
-    String filename = UUID.randomUUID() + "_q" + question.getQuestionNo()
-            + "_" + file.getOriginalFilename();
+        String fileUrl = fileStorageService.store(file, "submissions/" + examId);
+        return upsertQuestionSubmission(submission, question, fileUrl);
+    }
 
-    // Save to uploads/submissions/{examId}/{filename}
-    Path dest = Path.of(uploadDir).resolve("submissions").resolve(examId.toString()).resolve(filename);
-    Files.createDirectories(dest.getParent());
-    file.transferTo(dest);
+    @Transactional
+    public List<QuestionSubmission> uploadAnswerSheetForAllQuestions(UUID submissionId,
+                                                                     MultipartFile file) {
+        Submission submission = requireStudentSubmission(submissionId);
+        UUID examId = submission.getExam().getId();
+        String fileUrl = fileStorageService.store(file, "submissions/" + examId);
 
-    QuestionSubmission qs = questionSubmissionRepository
-            .findBySubmissionIdAndQuestionId(submissionId, questionId)
-            .orElse(QuestionSubmission.builder()
-                    .submission(submission)
-                    .question(question)
-                    .build());
+        submission.setFileUrl(fileUrl);
+        submission.setStatus(SubmissionStatus.PENDING);
+        submissionRepository.save(submission);
 
-    // Store relative path so evaluateSingle can reconstruct it
-    qs.setFileUrl("submissions/" + examId + "/" + filename);
-    qs.setStatus("PENDING");
-    return questionSubmissionRepository.save(qs);
-}
+        List<ExamQuestion> questions = examQuestionRepository.findByExamIdOrderByQuestionNoAsc(examId);
+        if (questions.isEmpty()) {
+            throw new IllegalArgumentException("No questions found for this exam");
+        }
+
+        List<QuestionSubmission> saved = new ArrayList<>();
+        for (ExamQuestion question : questions) {
+            saved.add(upsertQuestionSubmission(submission, question, fileUrl));
+        }
+        return saved;
+    }
     // ── 2. Trigger AI evaluation for all uploaded question submissions ─────────
 
     @Transactional
@@ -121,6 +130,7 @@ public QuestionSubmission uploadQuestionFile(UUID submissionId,
             body.put("file_path", fullPath);
             body.put("model_answer", qs.getQuestion().getModelAnswerText());
             body.put("max_marks", qs.getQuestion().getMarks());
+            body.put("question_no", qs.getQuestion().getQuestionNo());
 
             HttpHeaders headers = new HttpHeaders();
             headers.setContentType(MediaType.APPLICATION_JSON);
@@ -146,7 +156,6 @@ public QuestionSubmission uploadQuestionFile(UUID submissionId,
             questionEvaluationRepository.save(eval);
             qs.setStatus("AI_EVALUATED");
             questionSubmissionRepository.save(qs);
-
         } catch (Exception e) {
             log.error("AI evaluation failed for QuestionSubmission {}: {}", qs.getId(), e.getMessage());
             qs.setStatus("PENDING");
@@ -164,5 +173,38 @@ public QuestionSubmission uploadQuestionFile(UUID submissionId,
 
     public List<QuestionSubmission> getForSubmission(UUID submissionId) {
         return questionSubmissionRepository.findBySubmissionId(submissionId);
+    }
+
+    private Submission requireStudentSubmission(UUID submissionId) {
+        Submission submission = submissionRepository.findById(submissionId)
+                .orElseThrow(() -> new EntityNotFoundException("Submission not found"));
+
+        User student = currentUser();
+        if (!submission.getStudent().getId().equals(student.getId())) {
+            throw new IllegalArgumentException("You can only upload files for your own submission");
+        }
+        return submission;
+    }
+
+    private QuestionSubmission upsertQuestionSubmission(
+            Submission submission,
+            ExamQuestion question,
+            String fileUrl) {
+        QuestionSubmission qs = questionSubmissionRepository
+                .findBySubmissionIdAndQuestionId(submission.getId(), question.getId())
+                .orElse(QuestionSubmission.builder()
+                        .submission(submission)
+                        .question(question)
+                        .build());
+
+        qs.setFileUrl(fileUrl);
+        qs.setStatus("PENDING");
+        return questionSubmissionRepository.save(qs);
+    }
+
+    private User currentUser() {
+        String email = SecurityContextHolder.getContext().getAuthentication().getName();
+        return userRepository.findByEmail(email)
+                .orElseThrow(() -> new EntityNotFoundException("Authenticated user not found"));
     }
 }

@@ -20,6 +20,7 @@ $env:EDUEVAL_DB_USERNAME="postgres"
 $env:EDUEVAL_DB_PASSWORD="keep-your-password"
 $env:EDUEVAL_JWT_SECRET="change-this-to-a-long-random-secret-at-least-32-characters"
 $env:EDUEVAL_AI_BASE_URL="http://localhost:8000"
+$env:EDUEVAL_OCR_SPACE_API_KEY="your_ocr_space_api_key_here"
 ```
 
 ### 1. Python evaluator
@@ -32,12 +33,9 @@ pip install -r requirements.txt
 python -m uvicorn main:app --host 127.0.0.1 --port 8000
 ```
 
-Image submissions need the Tesseract OCR desktop app in addition to the Python
-packages. On Windows, install Tesseract and either add it to `PATH` or set:
-
-```powershell
-$env:EDUEVAL_TESSERACT_CMD="C:\Program Files\Tesseract-OCR\tesseract.exe"
-```
+Image and scanned PDF submissions use OCR.Space OCR Engine 3. The demo key
+`helloworld` is rate limited, so use your own OCR.Space API key for reliable
+testing.
 
 ### 2. Spring Boot backend
 

@@ -15,6 +15,8 @@ import com.edueval.exception.UnauthorizedActionException;
 import com.edueval.repository.ClassroomRepository;
 import com.edueval.repository.EvaluationRepository;
 import com.edueval.repository.ExamRepository;
+import com.edueval.repository.QuestionEvaluationRepository;
+import com.edueval.repository.QuestionSubmissionRepository;
 import com.edueval.repository.SubmissionRepository;
 import com.edueval.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
@@ -34,6 +36,8 @@ public class ExamService {
     private final ClassroomRepository classroomRepository;
     private final SubmissionRepository submissionRepository;
     private final EvaluationRepository evaluationRepository;
+    private final QuestionEvaluationRepository questionEvaluationRepository;
+    private final QuestionSubmissionRepository questionSubmissionRepository;
     private final UserRepository userRepository;
     private final ExamQuestionService examQuestionService;
 
@@ -92,6 +96,8 @@ public class ExamService {
         requireClassroomOwnership(exam.getClassroom());
         List<Evaluation> evaluations = evaluationRepository.findByExamId(examId);
         List<Submission> submissions = submissionRepository.findByExam(exam);
+        questionEvaluationRepository.deleteByExamId(examId);
+        questionSubmissionRepository.deleteByExamId(examId);
         evaluationRepository.deleteAll(evaluations);
         submissionRepository.deleteAll(submissions);
         examRepository.delete(exam);

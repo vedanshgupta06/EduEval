@@ -28,4 +28,20 @@ api.interceptors.response.use(
   }
 );
 
+export function getApiErrorMessage(error, fallback = 'Something went wrong') {
+  if (error.response?.data?.message) {
+    return error.response.data.message;
+  }
+
+  if (error.response?.status === 404) {
+    return 'The requested item was not found';
+  }
+
+  if (error.code === 'ERR_NETWORK') {
+    return 'Cannot reach the backend. Start edueval-backend on port 8080.';
+  }
+
+  return fallback;
+}
+
 export default api;

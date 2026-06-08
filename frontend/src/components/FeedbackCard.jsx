@@ -20,7 +20,9 @@ export default function FeedbackCard({ feedbackJson, aiMarks, teacherMarks, tota
     word_count_model,
     word_count_student,
     extracted_student_answer,
+    extracted_full_answer_sheet,
   } = feedback;
+  const extractedText = extracted_student_answer || extracted_full_answer_sheet;
   const finalMarks = teacherMarks ?? aiMarks;
   const confidenceLabel = confidence >= 0.75 ? 'High' : confidence >= 0.5 ? 'Medium' : 'Low';
   const confidenceColor = confidence >= 0.75 ? 'green' : confidence >= 0.5 ? 'orange' : 'red';
@@ -192,10 +194,10 @@ export default function FeedbackCard({ feedbackJson, aiMarks, teacherMarks, tota
         </strong></span>
       </div>
 
-      {extracted_student_answer && (
+      {extractedText && (
         <div className="feedback-section extracted-answer">
-          <h4>Extracted Student Answer</h4>
-          <p>{extracted_student_answer}</p>
+          <h4>Text Extracted From Image</h4>
+          <p>{extractedText}</p>
         </div>
       )}
 

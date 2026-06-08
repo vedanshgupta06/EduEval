@@ -5,6 +5,15 @@ import toast from 'react-hot-toast';
 import FeedbackCard from '../components/FeedbackCard';
 import { Save, RefreshCw, ArrowLeft, Clock, AlertCircle } from 'lucide-react';
 
+function getExtractedText(aiFeedback) {
+  const feedback = aiFeedback?.feedback || aiFeedback;
+  return (
+    feedback?.extracted_student_answer ||
+    feedback?.extracted_full_answer_sheet ||
+    ''
+  );
+}
+
 export default function SubmissionReviewPage() {
   const { submissionId } = useParams();
   const navigate = useNavigate();
@@ -358,6 +367,7 @@ export default function SubmissionReviewPage() {
           {questionEvals.map((qe) => {
             const override = qOverrides[qe.questionSubmissionId] || {};
             const effective = qe.effectiveMarks ?? qe.teacherMarks ?? qe.aiMarks ?? 0;
+            const extractedText = getExtractedText(qe.aiFeedback);
 
             return (
               <div
@@ -425,6 +435,13 @@ export default function SubmissionReviewPage() {
                         - {keyword}
                       </span>
                     ))}
+                  </div>
+                )}
+
+                {extractedText && (
+                  <div className="feedback-section extracted-answer" style={{ marginBottom: '0.75rem' }}>
+                    <h4>Text Extracted From Image</h4>
+                    <p>{extractedText}</p>
                   </div>
                 )}
 

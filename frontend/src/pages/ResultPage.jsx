@@ -5,6 +5,15 @@ import toast from 'react-hot-toast';
 import FeedbackCard from '../components/FeedbackCard';
 import { ArrowLeft, Clock } from 'lucide-react';
 
+function getExtractedText(aiFeedback) {
+  const feedback = aiFeedback?.feedback || aiFeedback;
+  return (
+    feedback?.extracted_student_answer ||
+    feedback?.extracted_full_answer_sheet ||
+    ''
+  );
+}
+
 export default function ResultPage() {
   const { submissionId } = useParams();
   const navigate = useNavigate();
@@ -131,6 +140,42 @@ export default function ResultPage() {
             confidence={evaluation.aiConfidence}
           />
         </>
+      )}
+
+      {isMulti && (
+        <div style={{ display: 'grid', gap: '1rem' }}>
+          {questionEvals.map((qe) => {
+            const effective = qe.effectiveMarks ?? qe.aiMarks ?? 0;
+            const extractedText = getExtractedText(qe.aiFeedback);
+
+            return (
+              <div key={qe.questionSubmissionId} className="card" style={{ padding: '1.25rem' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '1rem', marginBottom: '0.75rem' }}>
+                  <div>
+                    <strong style={{ color: '#4f46e5' }}>Q{qe.questionNo}</strong>
+                    <span className="field-hint" style={{ marginLeft: '0.5rem' }}>{qe.maxMarks} marks</span>
+                  </div>
+                  <span style={{ fontWeight: 700, whiteSpace: 'nowrap' }}>
+                    {effective.toFixed(1)} / {qe.maxMarks}
+                  </span>
+                </div>
+
+                <p style={{ fontSize: '0.9rem', color: '#374151', marginBottom: '0.75rem' }}>
+                  {qe.questionText}
+                </p>
+
+                {extractedText ? (
+                  <div className="feedback-section extracted-answer">
+                    <h4>Text Extracted From Image</h4>
+                    <p>{extractedText}</p>
+                  </div>
+                ) : (
+                  <p className="field-hint">No extracted text is available for this question yet.</p>
+                )}
+              </div>
+            );
+          })}
+        </div>
       )}
     </div>
   );

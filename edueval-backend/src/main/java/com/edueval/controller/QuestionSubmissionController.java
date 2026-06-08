@@ -7,6 +7,7 @@ import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 
+import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 
@@ -34,6 +35,26 @@ public class QuestionSubmissionController {
                 "questionSubmissionId", qs.getId(),
                 "status", qs.getStatus(),
                 "fileUrl", qs.getFileUrl()
+        ));
+    }
+
+    /**
+     * POST /api/submissions/{submissionId}/questions/upload-all
+     * Student uploads one answer sheet containing answers for all questions.
+     */
+    @PostMapping("/submissions/{submissionId}/questions/upload-all")
+    @PreAuthorize("hasRole('STUDENT')")
+    public ResponseEntity<?> uploadAnswerSheetForAllQuestions(
+            @PathVariable UUID submissionId,
+            @RequestParam("file") MultipartFile file) {
+
+        var submissions = questionSubmissionService
+                .uploadAnswerSheetForAllQuestions(submissionId, file);
+        List<UUID> ids = submissions.stream().map(qs -> qs.getId()).toList();
+        return ResponseEntity.ok(Map.of(
+                "questionSubmissionIds", ids,
+                "questionCount", submissions.size(),
+                "status", "PENDING"
         ));
     }
 

@@ -43,6 +43,7 @@ public class SecurityConfig {
                 // Route-level authorization
                 .authorizeHttpRequests(auth -> auth
                         // Public routes — no token needed
+                        .requestMatchers("/api/health").permitAll()
                         .requestMatchers("/api/auth/**").permitAll()
                         .requestMatchers("/api/files/**").permitAll()
 
