@@ -121,14 +121,8 @@ def extract_text_from_upload(relative_path: str) -> str:
 def unreadable_submission_result(payload: EvaluationRequest) -> dict[str, Any]:
     feedback = {
         "error": "Could not extract readable text from the submitted answer sheet.",
-        "keyword_analysis": {
-            "covered": [],
-            "missing": [],
-        },
-        "sentence_analysis": {
-            "missing_points": [],
-            "additional_content": [],
-        },
+        "keyword_analysis": {"covered": [], "missing": []},
+        "sentence_analysis": {"missing_points": [], "additional_content": []},
         "score_breakdown": {
             "keyword_score": 0.0,
             "semantic_score": 0.0,
@@ -191,7 +185,7 @@ def extract_pdf_text(file_path: Path) -> str:
 def extract_image_text(file_path: Path) -> str:
     try:
         import pytesseract
-        from PIL import Image
+        from PIL import Image, ImageFilter, ImageEnhance
     except ImportError as exc:
         raise HTTPException(
             status_code=500,
@@ -211,7 +205,21 @@ def extract_image_text(file_path: Path) -> str:
     pytesseract.pytesseract.tesseract_cmd = tesseract_cmd
 
     try:
-        return normalize_space(pytesseract.image_to_string(Image.open(file_path)))
+        img = Image.open(file_path)
+
+        # Convert to grayscale
+        img = img.convert('L')
+
+        # Enhance contrast for better OCR on handwritten text
+        img = ImageEnhance.Contrast(img).enhance(2.0)
+
+        # Sharpen edges
+        img = img.filter(ImageFilter.SHARPEN)
+
+        # Use psm 6 (assume uniform block of text) with oem 3 (best LSTM engine)
+        custom_config = r'--oem 3 --psm 6'
+
+        return normalize_space(pytesseract.image_to_string(img, config=custom_config))
     except Exception as exc:
         raise HTTPException(
             status_code=500,
@@ -264,10 +272,7 @@ def build_feedback(model_answer: str, student_answer: str) -> dict[str, Any]:
     length_score = length_similarity(len(model_tokens), len(student_tokens))
 
     return {
-        "keyword_analysis": {
-            "covered": covered,
-            "missing": missing,
-        },
+        "keyword_analysis": {"covered": covered, "missing": missing},
         "sentence_analysis": {
             "missing_points": missing_points,
             "additional_content": additional_content,
@@ -355,3 +360,62 @@ def confidence_from_feedback(feedback: dict[str, Any], weighted_score: float) ->
     uncertainty_penalty = min(0.25, (missing_count + additional_count) * 0.025)
     confidence = 0.65 + (weighted_score * 0.25) + extraction_bonus - uncertainty_penalty
     return round(max(0.35, min(0.95, confidence)), 3)
+
+
+class QuestionEvaluateRequest(BaseModel):
+    file_path: str
+    model_answer: str
+    max_marks: int
+
+
+@app.post("/evaluate-question")
+def evaluate_question(request: QuestionEvaluateRequest):
+    file_path = Path(request.file_path)
+    if not file_path.exists():
+        raise HTTPException(status_code=404, detail=f"File not found: {request.file_path}")
+
+    suffix = file_path.suffix.lower()
+    if suffix in {".jpg", ".jpeg", ".png", ".webp"}:
+        student_text = extract_image_text(file_path)
+    elif suffix == ".pdf":
+        student_text = extract_pdf_text(file_path)
+    else:
+        raise HTTPException(status_code=400, detail=f"Unsupported file type: {suffix}")
+
+    if not student_text or not student_text.strip():
+        return {
+            "marks": 0.0,
+            "confidence": 1.0,
+            "feedback": {
+                "matched_keywords": [],
+                "missed_keywords": [],
+                "semantic_score": 0.0,
+                "keyword_score": 0.0,
+                "explanation": "No text detected — question appears skipped.",
+            },
+        }
+
+    feedback = build_feedback(request.model_answer, student_text)
+    scores = feedback["score_breakdown"]
+    weighted_score = sum(scores[key] * weight for key, weight in SCORING_WEIGHTS.items())
+    ai_marks = round(max(0.0, min(request.max_marks, weighted_score * request.max_marks)), 2)
+    confidence = confidence_from_feedback(feedback, weighted_score)
+
+    return {
+        "marks": ai_marks,
+        "confidence": confidence,
+        "feedback": {
+            "semantic_score": scores["semantic_score"],
+            "keyword_score": scores["keyword_score"],
+            "matched_keywords": feedback["keyword_analysis"]["covered"],
+            "missed_keywords": feedback["keyword_analysis"]["missing"],
+            "explanation": (
+                f"Semantic: {scores['semantic_score']}, "
+                f"Keywords: {scores['keyword_score']}, "
+                f"Sentences: {scores['sentence_score']}, "
+                f"Length: {scores['length_score']}. "
+                f"Words — model: {feedback['word_count_model']}, "
+                f"student: {feedback['word_count_student']}."
+            ),
+        },
+    }
