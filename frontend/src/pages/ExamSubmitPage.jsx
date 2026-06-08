@@ -132,8 +132,8 @@ export default function ExamSubmitPage() {
         if (!uploaded) return;
       }
 
-      await api.post(`/api/submissions/${activeSubmissionId}/evaluate-questions`);
-      toast.success('Submitted! AI evaluation in progress...');
+      const { data } = await api.post(`/api/submissions/${activeSubmissionId}/evaluate-questions`);
+      toast.success(`Submitted! AI evaluated ${data.succeeded ?? 0}/${data.attempted ?? questions.length} questions.`);
       navigate(`/student/result/${activeSubmissionId}`);
     } catch (err) {
       toast.error(getApiErrorMessage(err, 'Submission failed'));

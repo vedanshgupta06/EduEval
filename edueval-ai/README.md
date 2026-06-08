@@ -22,6 +22,8 @@ Set your OCR.Space API key in the project root `.env`:
 
 ```powershell
 EDUEVAL_OCR_SPACE_API_KEY=your_ocr_space_api_key_here
+EDUEVAL_OCR_SPACE_MAX_UPLOAD_BYTES=900000
+EDUEVAL_OCR_SPACE_IMAGE_MAX_SIDE=1600
 ```
 
 The checked-in local `.env` may use OCR.Space's demo key `helloworld`, but that
@@ -32,7 +34,7 @@ Spring Boot already points to this service with:
 ```yaml
 app:
   ai-engine:
-    base-url: http://localhost:8000
+    base-url: http://127.0.0.1:8000
 ```
 
 PDFs with selectable text can still be read locally as a fallback, but image

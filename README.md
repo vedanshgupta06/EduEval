@@ -19,8 +19,10 @@ $env:EDUEVAL_DB_URL="jdbc:postgresql://localhost:5432/edueval"
 $env:EDUEVAL_DB_USERNAME="postgres"
 $env:EDUEVAL_DB_PASSWORD="keep-your-password"
 $env:EDUEVAL_JWT_SECRET="change-this-to-a-long-random-secret-at-least-32-characters"
-$env:EDUEVAL_AI_BASE_URL="http://localhost:8000"
+$env:EDUEVAL_AI_BASE_URL="http://127.0.0.1:8000"
 $env:EDUEVAL_OCR_SPACE_API_KEY="your_ocr_space_api_key_here"
+$env:EDUEVAL_OCR_SPACE_MAX_UPLOAD_BYTES="900000"
+$env:EDUEVAL_OCR_SPACE_IMAGE_MAX_SIDE="1600"
 ```
 
 ### 1. Python evaluator
@@ -58,4 +60,4 @@ Then open:
 http://localhost:5173
 ```
 
-The frontend calls the backend at `http://localhost:8080`, and the backend calls the Python evaluator at `http://localhost:8000`.
+The frontend calls the backend at `http://localhost:8080`, and the backend calls the Python evaluator at `http://127.0.0.1:8000`.

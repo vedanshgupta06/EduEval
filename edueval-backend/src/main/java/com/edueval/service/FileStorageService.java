@@ -66,6 +66,10 @@ public class FileStorageService {
         }
     }
 
+    public Path resolve(String relativePath) {
+        return uploadRoot.resolve(relativePath).normalize().toAbsolutePath();
+    }
+
     // ── Private ──────────────────────────────────────────────────────────────
 
     private void validateFile(MultipartFile file) {

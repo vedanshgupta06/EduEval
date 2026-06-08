@@ -67,8 +67,12 @@ public class QuestionSubmissionController {
     @PostMapping("/submissions/{submissionId}/evaluate-questions")
     @PreAuthorize("hasRole('STUDENT')")
     public ResponseEntity<?> triggerEvaluation(@PathVariable UUID submissionId) {
-        questionSubmissionService.evaluateAllQuestions(submissionId);
-        return ResponseEntity.ok(Map.of("message", "Evaluation triggered for all questions"));
+        var result = questionSubmissionService.evaluateAllQuestions(submissionId);
+        return ResponseEntity.ok(Map.of(
+                "message", "Evaluation completed for all questions",
+                "attempted", result.attempted(),
+                "succeeded", result.succeeded()
+        ));
     }
 
     /**

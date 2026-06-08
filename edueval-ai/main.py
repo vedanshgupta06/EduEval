@@ -4,6 +4,8 @@ import math
 import os
 import re
 import string
+import logging
+from io import BytesIO
 from collections import Counter
 from functools import lru_cache
 from pathlib import Path
@@ -32,6 +34,7 @@ def load_project_env() -> None:
 
 
 load_project_env()
+logging.basicConfig(level=logging.INFO)
 
 DEFAULT_UPLOAD_ROOT = PROJECT_ROOT / "edueval-backend" / "uploads"
 backend_upload_dir = os.getenv("EDUEVAL_UPLOAD_ROOT") or os.getenv("EDUEVAL_UPLOAD_DIR")
@@ -50,6 +53,9 @@ OCR_SPACE_API_KEY = os.getenv("EDUEVAL_OCR_SPACE_API_KEY", "helloworld")
 OCR_SPACE_LANGUAGE = os.getenv("EDUEVAL_OCR_SPACE_LANGUAGE", "eng")
 OCR_SPACE_TIMEOUT = int(os.getenv("EDUEVAL_OCR_SPACE_TIMEOUT", "60"))
 OCR_SPACE_MAX_PDF_PAGES = int(os.getenv("EDUEVAL_OCR_SPACE_MAX_PDF_PAGES", "8"))
+OCR_SPACE_MAX_UPLOAD_BYTES = int(os.getenv("EDUEVAL_OCR_SPACE_MAX_UPLOAD_BYTES", "900000"))
+OCR_SPACE_IMAGE_MAX_SIDE = int(os.getenv("EDUEVAL_OCR_SPACE_IMAGE_MAX_SIDE", "1600"))
+logger = logging.getLogger("edueval-ai")
 SCORING_WEIGHTS = {
     "keyword_score": 0.40,
     "semantic_score": 0.35,
@@ -138,6 +144,7 @@ def evaluate(payload: EvaluationRequest) -> dict[str, Any]:
 
 @app.post("/evaluate-question")
 def evaluate_question(payload: QuestionEvaluationRequest) -> dict[str, Any]:
+    logger.info("POST /evaluate-question received for question %s", payload.question_no)
     model_text = normalize_space(payload.model_answer)
     if not model_text:
         raise HTTPException(
@@ -149,6 +156,7 @@ def evaluate_question(payload: QuestionEvaluationRequest) -> dict[str, Any]:
     student_text = extract_text_from_file(file_path)
     scoped_student_text = extract_answer_for_question(student_text, payload.question_no)
     if not student_text or not scoped_student_text:
+        logger.warning("No readable text extracted for question %s", payload.question_no)
         feedback = unreadable_feedback(payload.max_marks)
         feedback["extracted_full_answer_sheet"] = student_text[:2000]
         return {
@@ -176,6 +184,13 @@ def evaluate_question(payload: QuestionEvaluationRequest) -> dict[str, Any]:
             "sentence_score*0.15 + length_score*0.10)"
         ),
     }
+
+    logger.info(
+        "Completed /evaluate-question for question %s with %.2f/%s marks",
+        payload.question_no,
+        marks,
+        payload.max_marks,
+    )
 
     return {
         "marks": marks,
@@ -357,10 +372,6 @@ def validate_readable_path(file_path: Path, original_value: str) -> Path:
 
 
 def extract_pdf_text(file_path: Path) -> str:
-    ocr_text = extract_ocr_space_text(file_path, is_pdf=True)
-    if ocr_text:
-        return ocr_text
-
     try:
         from pypdf import PdfReader
     except ImportError as exc:
@@ -373,7 +384,15 @@ def extract_pdf_text(file_path: Path) -> str:
     pages = []
     for page in reader.pages[:MAX_PDF_PAGES]:
         pages.append(page.extract_text() or "")
-    return normalize_space("\n".join(pages))
+    embedded_text = normalize_space("\n".join(pages))
+    if embedded_text:
+        return embedded_text
+
+    ocr_text = extract_ocr_space_text(file_path, is_pdf=True)
+    if ocr_text:
+        return ocr_text
+
+    return ""
 
 
 def extract_image_text(file_path: Path) -> str:
@@ -381,6 +400,7 @@ def extract_image_text(file_path: Path) -> str:
 
 
 def extract_ocr_space_text(file_path: Path, is_pdf: bool) -> str:
+    upload_name, upload_bytes, content_type = prepare_ocr_upload(file_path, is_pdf)
     data = {
         "language": OCR_SPACE_LANGUAGE,
         "OCREngine": "3",
@@ -393,14 +413,18 @@ def extract_ocr_space_text(file_path: Path, is_pdf: bool) -> str:
         data["pages"] = f"1-{OCR_SPACE_MAX_PDF_PAGES}"
 
     try:
-        with file_path.open("rb") as file_obj:
-            response = requests.post(
-                OCR_SPACE_API_URL,
-                headers={"apikey": OCR_SPACE_API_KEY},
-                data=data,
-                files={"file": (file_path.name, file_obj)},
-                timeout=OCR_SPACE_TIMEOUT,
-            )
+        logger.info(
+            "Sending %s to OCR.Space (%s bytes)",
+            upload_name,
+            len(upload_bytes),
+        )
+        response = requests.post(
+            OCR_SPACE_API_URL,
+            headers={"apikey": OCR_SPACE_API_KEY},
+            data=data,
+            files={"file": (upload_name, upload_bytes, content_type)},
+            timeout=OCR_SPACE_TIMEOUT,
+        )
         response.raise_for_status()
         result = response.json()
     except requests.RequestException as exc:
@@ -420,6 +444,69 @@ def extract_ocr_space_text(file_path: Path, is_pdf: bool) -> str:
     parsed_results = result.get("ParsedResults") or []
     parsed_text = "\n".join(item.get("ParsedText", "") for item in parsed_results)
     return normalize_space(parsed_text)
+
+
+def prepare_ocr_upload(file_path: Path, is_pdf: bool) -> tuple[str, bytes, str]:
+    if is_pdf:
+        data = file_path.read_bytes()
+        if len(data) > OCR_SPACE_MAX_UPLOAD_BYTES:
+            raise HTTPException(
+                status_code=413,
+                detail=(
+                    "PDF is too large for OCR.Space. Export or scan it as a compressed "
+                    "JPG/PNG image, or reduce the PDF size before uploading."
+                ),
+            )
+        return file_path.name, data, "application/pdf"
+
+    return prepare_image_ocr_upload(file_path)
+
+
+def prepare_image_ocr_upload(file_path: Path) -> tuple[str, bytes, str]:
+    try:
+        from PIL import Image, ImageOps
+    except ImportError as exc:
+        raise HTTPException(
+            status_code=500,
+            detail="Install pillow in edueval-ai to compress image submissions.",
+        ) from exc
+
+    try:
+        with Image.open(file_path) as image:
+            image = ImageOps.exif_transpose(image)
+            image.thumbnail(
+                (OCR_SPACE_IMAGE_MAX_SIDE, OCR_SPACE_IMAGE_MAX_SIDE),
+                Image.Resampling.LANCZOS,
+            )
+            if image.mode not in {"RGB", "L"}:
+                image = image.convert("RGB")
+
+            for quality in (82, 74, 66, 58, 50, 42):
+                buffer = BytesIO()
+                image.save(buffer, format="JPEG", quality=quality, optimize=True)
+                data = buffer.getvalue()
+                if len(data) <= OCR_SPACE_MAX_UPLOAD_BYTES:
+                    return f"{file_path.stem}_ocr.jpg", data, "image/jpeg"
+
+            buffer = BytesIO()
+            smaller = image.copy()
+            smaller.thumbnail((1100, 1100), Image.Resampling.LANCZOS)
+            smaller.save(buffer, format="JPEG", quality=38, optimize=True)
+            data = buffer.getvalue()
+            if len(data) <= OCR_SPACE_MAX_UPLOAD_BYTES:
+                return f"{file_path.stem}_ocr.jpg", data, "image/jpeg"
+
+            raise HTTPException(
+                status_code=413,
+                detail=(
+                    "Image is still too large for OCR.Space after compression. "
+                    "Please crop extra background or upload a lower-resolution image."
+                ),
+            )
+    except HTTPException:
+        raise
+    except Exception as exc:
+        raise HTTPException(status_code=500, detail=f"Image compression failed: {exc}") from exc
 
 
 def unreadable_feedback(total_marks: float) -> dict[str, Any]:

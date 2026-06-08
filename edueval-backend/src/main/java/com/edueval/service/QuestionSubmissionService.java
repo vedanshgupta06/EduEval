@@ -12,10 +12,12 @@ import org.springframework.http.*;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.web.client.ResourceAccessException;
+import org.springframework.web.client.RestClientException;
+import org.springframework.web.client.RestClientResponseException;
 import org.springframework.web.client.RestTemplate;
 import org.springframework.web.multipart.MultipartFile;
 
-import java.nio.file.*;
 import java.util.*;
 
 @Slf4j
@@ -31,10 +33,7 @@ public class QuestionSubmissionService {
     private final FileStorageService fileStorageService;
     private final ObjectMapper objectMapper;
 
-    @Value("${app.file-storage.upload-dir:./uploads}")
-    private String uploadDir;
-
-    @Value("${app.ai-engine.base-url:http://localhost:8000}")
+    @Value("${app.ai-engine.base-url:http://127.0.0.1:8000}")
     private String aiBaseUrl;
 
     // ── 1. Student uploads file for one question ──────────────────────────────
@@ -82,12 +81,30 @@ public class QuestionSubmissionService {
     // ── 2. Trigger AI evaluation for all uploaded question submissions ─────────
 
     @Transactional
-    public void evaluateAllQuestions(UUID submissionId) {
+    public EvaluationRunResult evaluateAllQuestions(UUID submissionId) {
         List<QuestionSubmission> list = questionSubmissionRepository.findBySubmissionId(submissionId);
+        if (list.isEmpty()) {
+            throw new IllegalStateException("Upload an answer sheet before submitting for evaluation");
+        }
 
+        Submission parent = submissionRepository.findById(submissionId).orElseThrow();
+        parent.setStatus(SubmissionStatus.PROCESSING);
+        submissionRepository.save(parent);
+
+        int attempted = 0;
+        int succeeded = 0;
+        List<String> failures = new ArrayList<>();
         for (QuestionSubmission qs : list) {
-            if ("PENDING".equals(qs.getStatus()) || "PROCESSING".equals(qs.getStatus())) {
+            if ("REVIEWED".equals(qs.getStatus())) {
+                continue;
+            }
+
+            attempted++;
+            try {
                 evaluateSingle(qs);
+                succeeded++;
+            } catch (RuntimeException ex) {
+                failures.add("Q" + qs.getQuestion().getQuestionNo() + ": " + ex.getMessage());
             }
         }
 
@@ -96,11 +113,18 @@ public class QuestionSubmissionService {
         boolean allDone = list.stream()
                 .allMatch(q -> "AI_EVALUATED".equals(q.getStatus()) || "REVIEWED".equals(q.getStatus()));
 
-        Submission parent = submissionRepository.findById(submissionId).orElseThrow();
         if (allDone) {
             parent.setStatus(SubmissionStatus.AI_EVALUATED);
             submissionRepository.save(parent);
         }
+
+        if (!failures.isEmpty()) {
+            parent.setStatus(SubmissionStatus.PENDING);
+            submissionRepository.save(parent);
+            throw new IllegalStateException("AI evaluation failed: " + String.join("; ", failures));
+        }
+
+        return new EvaluationRunResult(attempted, succeeded);
     }
 
     // ── 3. Re-evaluate a single question (teacher-triggered) ──────────────────
@@ -121,16 +145,21 @@ public class QuestionSubmissionService {
         try {
             RestTemplate rt = new RestTemplate();
             Map<String, Object> body = new HashMap<>();
-            String fullPath = Path.of(uploadDir)
-                .resolve(qs.getFileUrl())
-                .toAbsolutePath()
-                .toString()
-                .replace("\\", "/");
+            String fullPath = fileStorageService
+                    .resolve(qs.getFileUrl())
+                    .toString()
+                    .replace("\\", "/");
             log.info("Sending file_path to AI: {}", fullPath);
             body.put("file_path", fullPath);
             body.put("model_answer", qs.getQuestion().getModelAnswerText());
             body.put("max_marks", qs.getQuestion().getMarks());
             body.put("question_no", qs.getQuestion().getQuestionNo());
+            log.info(
+                    "Calling AI endpoint {} for submission {} question {}",
+                    aiBaseUrl + "/evaluate-question",
+                    qs.getSubmission().getId(),
+                    qs.getQuestion().getQuestionNo()
+            );
 
             HttpHeaders headers = new HttpHeaders();
             headers.setContentType(MediaType.APPLICATION_JSON);
@@ -156,10 +185,35 @@ public class QuestionSubmissionService {
             questionEvaluationRepository.save(eval);
             qs.setStatus("AI_EVALUATED");
             questionSubmissionRepository.save(qs);
-        } catch (Exception e) {
-            log.error("AI evaluation failed for QuestionSubmission {}: {}", qs.getId(), e.getMessage());
+        } catch (ResourceAccessException e) {
+            log.error("AI endpoint connection failed for QuestionSubmission {}: {}", qs.getId(), e.getMessage(), e);
             qs.setStatus("PENDING");
             questionSubmissionRepository.save(qs);
+            throw new IllegalStateException("Could not reach edueval-ai at " + aiBaseUrl, e);
+        } catch (RestClientResponseException e) {
+            log.error(
+                    "AI endpoint returned {} for QuestionSubmission {}: {}",
+                    e.getStatusCode(),
+                    qs.getId(),
+                    e.getResponseBodyAsString(),
+                    e
+            );
+            qs.setStatus("PENDING");
+            questionSubmissionRepository.save(qs);
+            throw new IllegalStateException(
+                    "edueval-ai returned " + e.getStatusCode() + ": " + e.getResponseBodyAsString(),
+                    e
+            );
+        } catch (RestClientException e) {
+            log.error("AI endpoint call failed for QuestionSubmission {}: {}", qs.getId(), e.getMessage(), e);
+            qs.setStatus("PENDING");
+            questionSubmissionRepository.save(qs);
+            throw new IllegalStateException("edueval-ai call failed: " + e.getMessage(), e);
+        } catch (Exception e) {
+            log.error("AI evaluation failed for QuestionSubmission {}: {}", qs.getId(), e.getMessage(), e);
+            qs.setStatus("PENDING");
+            questionSubmissionRepository.save(qs);
+            throw new IllegalStateException(e.getMessage(), e);
         }
     }
 
@@ -207,4 +261,6 @@ public class QuestionSubmissionService {
         return userRepository.findByEmail(email)
                 .orElseThrow(() -> new EntityNotFoundException("Authenticated user not found"));
     }
+
+    public record EvaluationRunResult(int attempted, int succeeded) {}
 }
