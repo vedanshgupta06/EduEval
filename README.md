@@ -21,6 +21,7 @@ $env:EDUEVAL_DB_PASSWORD="keep-your-password"
 $env:EDUEVAL_JWT_SECRET="change-this-to-a-long-random-secret-at-least-32-characters"
 $env:EDUEVAL_AI_BASE_URL="http://127.0.0.1:8000"
 $env:EDUEVAL_OCR_SPACE_API_KEY="your_ocr_space_api_key_here"
+$env:EDUEVAL_OCR_SPACE_ENGINE="2"
 $env:EDUEVAL_OCR_SPACE_MAX_UPLOAD_BYTES="900000"
 $env:EDUEVAL_OCR_SPACE_IMAGE_MAX_SIDE="1600"
 ```
@@ -35,9 +36,10 @@ pip install -r requirements.txt
 python -m uvicorn main:app --host 127.0.0.1 --port 8000
 ```
 
-Image and scanned PDF submissions use OCR.Space OCR Engine 3. The demo key
-`helloworld` is rate limited, so use your own OCR.Space API key for reliable
-testing.
+Image and scanned PDF submissions use OCR.Space. Engine 2 is the default because
+it works reliably with the free API endpoint; set `EDUEVAL_OCR_SPACE_ENGINE=3`
+only if your OCR.Space key supports it. The demo key `helloworld` is rate
+limited, so use your own OCR.Space API key for reliable testing.
 
 ### 2. Spring Boot backend
 

@@ -7,11 +7,18 @@ import { Save, RefreshCw, ArrowLeft, Clock, AlertCircle } from 'lucide-react';
 
 function getExtractedText(aiFeedback) {
   const feedback = aiFeedback?.feedback || aiFeedback;
+  if (feedback?.not_evaluated) {
+    return feedback?.extracted_student_answer || '';
+  }
   return (
     feedback?.extracted_student_answer ||
     feedback?.extracted_full_answer_sheet ||
     ''
   );
+}
+
+function getFeedback(aiFeedback) {
+  return aiFeedback?.feedback || aiFeedback || {};
 }
 
 export default function SubmissionReviewPage() {
@@ -365,6 +372,8 @@ export default function SubmissionReviewPage() {
           </div>
 
           {questionEvals.map((qe) => {
+            const feedback = getFeedback(qe.aiFeedback);
+            const notEvaluated = Boolean(feedback.not_evaluated);
             const override = qOverrides[qe.questionSubmissionId] || {};
             const effective = qe.effectiveMarks ?? qe.teacherMarks ?? qe.aiMarks ?? 0;
             const extractedText = getExtractedText(qe.aiFeedback);
@@ -386,7 +395,7 @@ export default function SubmissionReviewPage() {
                     )}
                   </div>
                   <span style={{ fontWeight: 700, fontSize: '1.1rem', whiteSpace: 'nowrap' }}>
-                    {effective.toFixed(1)} / {qe.maxMarks}
+                    {notEvaluated ? 'Not evaluated' : `${effective.toFixed(1)} / ${qe.maxMarks}`}
                   </span>
                 </div>
 
@@ -405,7 +414,7 @@ export default function SubmissionReviewPage() {
                 )}
 
                 <div style={{ display: 'flex', gap: '1rem', marginBottom: '0.75rem', fontSize: '0.85rem', flexWrap: 'wrap' }}>
-                  <span>AI Marks: <strong>{qe.aiMarks?.toFixed(1) ?? '-'}</strong></span>
+                  <span>AI Marks: <strong>{notEvaluated ? 'Not evaluated' : (qe.aiMarks?.toFixed(1) ?? '-')}</strong></span>
                   <span>
                     Confidence:{' '}
                     <strong>
@@ -443,6 +452,12 @@ export default function SubmissionReviewPage() {
                     <h4>Text Extracted From Image</h4>
                     <p>{extractedText}</p>
                   </div>
+                )}
+
+                {notEvaluated && !extractedText && (
+                  <p className="field-hint" style={{ marginBottom: '0.75rem' }}>
+                    {feedback.error || 'No answer was detected for this question.'}
+                  </p>
                 )}
 
                 <div style={{ display: 'flex', gap: '0.75rem', alignItems: 'center', borderTop: '1px solid #e5e7eb', paddingTop: '0.75rem', flexWrap: 'wrap' }}>

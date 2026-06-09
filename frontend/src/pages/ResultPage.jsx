@@ -7,11 +7,18 @@ import { ArrowLeft, Clock } from 'lucide-react';
 
 function getExtractedText(aiFeedback) {
   const feedback = aiFeedback?.feedback || aiFeedback;
+  if (feedback?.not_evaluated) {
+    return feedback?.extracted_student_answer || '';
+  }
   return (
     feedback?.extracted_student_answer ||
     feedback?.extracted_full_answer_sheet ||
     ''
   );
+}
+
+function getFeedback(aiFeedback) {
+  return aiFeedback?.feedback || aiFeedback || {};
 }
 
 export default function ResultPage() {
@@ -145,6 +152,8 @@ export default function ResultPage() {
       {isMulti && (
         <div style={{ display: 'grid', gap: '1rem' }}>
           {questionEvals.map((qe) => {
+            const feedback = getFeedback(qe.aiFeedback);
+            const notEvaluated = Boolean(feedback.not_evaluated);
             const effective = qe.effectiveMarks ?? qe.aiMarks ?? 0;
             const extractedText = getExtractedText(qe.aiFeedback);
 
@@ -156,7 +165,7 @@ export default function ResultPage() {
                     <span className="field-hint" style={{ marginLeft: '0.5rem' }}>{qe.maxMarks} marks</span>
                   </div>
                   <span style={{ fontWeight: 700, whiteSpace: 'nowrap' }}>
-                    {effective.toFixed(1)} / {qe.maxMarks}
+                    {notEvaluated ? 'Not evaluated' : `${effective.toFixed(1)} / ${qe.maxMarks}`}
                   </span>
                 </div>
 
@@ -169,6 +178,8 @@ export default function ResultPage() {
                     <h4>Text Extracted From Image</h4>
                     <p>{extractedText}</p>
                   </div>
+                ) : notEvaluated ? (
+                  <p className="field-hint">{feedback.error || 'No answer was detected for this question.'}</p>
                 ) : (
                   <p className="field-hint">No extracted text is available for this question yet.</p>
                 )}
