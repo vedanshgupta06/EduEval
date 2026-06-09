@@ -1032,3 +1032,58 @@ a:hover { text-decoration: underline; }
   .navbar-right .nav-name { display: none; }
   .card-grid { grid-template-columns: 1fr; }
 }
+
+
+
+
+.tabs {
+  display: flex;
+  gap: 0.25rem;
+  border-bottom: 2px solid var(--border, #e5e7eb);
+}
+
+.tab-btn {
+  display: inline-flex;
+  align-items: center;
+  padding: 0.55rem 1.1rem;
+  font-size: 0.875rem;
+  font-weight: 500;
+  color: var(--text-muted, #6b7280);
+  background: transparent;
+  border: none;
+  border-bottom: 2px solid transparent;
+  margin-bottom: -2px;   /* sits on top of .tabs border-bottom */
+  cursor: pointer;
+  transition: color 0.15s, border-color 0.15s;
+  border-radius: 6px 6px 0 0;
+}
+
+.tab-btn:hover {
+  color: var(--text-primary, #111827);
+  background: var(--surface-alt, #f9fafb);
+}
+
+.tab-btn.active {
+  color: var(--primary, #4f46e5);
+  border-bottom-color: var(--primary, #4f46e5);
+  background: transparent;
+}
+
+.tab-count {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  margin-left: 0.4rem;
+  padding: 0 0.45rem;
+  height: 18px;
+  font-size: 0.7rem;
+  font-weight: 600;
+  background: var(--surface-alt, #f3f4f6);
+  color: var(--text-muted, #6b7280);
+  border-radius: 9999px;
+}
+
+.tab-btn.active .tab-count {
+  background: var(--primary-bg, #eef2ff);
+  color: var(--primary, #4f46e5);
+}

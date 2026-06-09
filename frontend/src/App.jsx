@@ -15,6 +15,9 @@ import SubmissionReviewPage from './pages/SubmissionReviewPage';
 import ExamSubmitPage from './pages/ExamSubmitPage';
 import ResultPage from './pages/ResultPage';
 import AnalyticsPage from './pages/AnalyticsPage';
+import CreateAssessmentPage  from './pages/CreateAssessmentPage';
+import TakeAssessmentPage    from './pages/TakeAssessmentPage';
+import AssessmentResultsPage from './pages/AssessmentResultsPage';
 
 function AppLayout() {
   const location = useLocation();
@@ -53,7 +56,18 @@ function AppLayout() {
           <Route path="/teacher/classroom/:classroomId/analytics" element={
             <ProtectedRoute role="TEACHER"><AnalyticsPage /></ProtectedRoute>
           } />
-
+          <Route
+            path="/teacher/classroom/:classroomId/create-assessment"
+            element={<ProtectedRoute role="TEACHER"><CreateAssessmentPage /></ProtectedRoute>}
+          />
+          <Route
+            path="/teacher/assessment/:assessmentId/results"
+            element={<ProtectedRoute role="TEACHER"><AssessmentResultsPage /></ProtectedRoute>}
+          />
+          <Route
+            path="/student/assessment/:assessmentId/take"
+            element={<ProtectedRoute role="STUDENT"><TakeAssessmentPage /></ProtectedRoute>}
+          />
           {/* Student routes */}
           <Route path="/student" element={
             <ProtectedRoute role="STUDENT"><StudentDashboard /></ProtectedRoute>
