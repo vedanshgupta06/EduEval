@@ -1023,3 +1023,64 @@ def confidence_from_feedback(feedback: dict[str, Any], weighted_score: float) ->
     uncertainty_penalty = min(0.25, (missing_count + additional_count) * 0.025)
     confidence = 0.65 + (weighted_score * 0.25) + extraction_bonus - uncertainty_penalty
     return round(max(0.35, min(0.95, confidence)), 3)
+
+
+
+
+class TextEvaluationRequest(BaseModel):
+    answer_id: str
+    submission_id: str
+    question_text: str = ""
+    answer_text: str
+    model_answer_text: str
+    max_marks: float = Field(gt=0)
+
+
+@app.post("/evaluate-text")
+def evaluate_text(payload: TextEvaluationRequest) -> dict:
+    """
+    Evaluates a typed descriptive answer against a model answer.
+    No file reading needed — text is passed directly.
+    Used by the Assessment module for DESCRIPTIVE questions.
+    """
+    model_text = (payload.model_answer_text or "").strip()
+    student_text = (payload.answer_text or "").strip()
+
+    if not model_text:
+        raise HTTPException(
+            status_code=400,
+            detail="Model answer text is required for evaluation.",
+        )
+
+    if not student_text:
+        return {
+            "answer_id": payload.answer_id,
+            "submission_id": payload.submission_id,
+            "ai_marks": 0.0,
+            "ai_confidence": 0.0,
+            "feedback": {
+                "summary": "No answer provided.",
+                "score_breakdown": {
+                    "keyword_score": 0.0,
+                    "semantic_score": 0.0,
+                    "sentence_score": 0.0,
+                    "length_score": 0.0,
+                },
+            },
+        }
+
+    # Reuse existing scoring logic
+    feedback = build_feedback(model_text, student_text)
+    scores = feedback["score_breakdown"]
+
+    weighted_score = sum(scores[key] * weight for key, weight in SCORING_WEIGHTS.items())
+    ai_marks = round(max(0.0, min(payload.max_marks, weighted_score * payload.max_marks)), 2)
+    confidence = confidence_from_feedback(feedback, weighted_score)
+
+    return {
+        "answer_id": payload.answer_id,
+        "submission_id": payload.submission_id,
+        "ai_marks": ai_marks,
+        "ai_confidence": confidence,
+        "feedback": feedback,
+    }

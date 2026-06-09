@@ -3,7 +3,8 @@ import { useParams, useNavigate } from 'react-router-dom';
 import api from '../api/axios';
 import toast from 'react-hot-toast';
 import { useAuth } from '../context/useAuth';
-import { Plus, Clock, Users, FileText, Trash2 } from 'lucide-react';
+import { Plus, Clock, Users, FileText, Trash2, ClipboardList } from 'lucide-react';
+import { getAssessmentsForClassroom } from '../api/assessments';
 
 export default function ClassroomPage() {
   const { id } = useParams();
@@ -13,16 +14,20 @@ export default function ClassroomPage() {
 
   const [classroom, setClassroom] = useState(null);
   const [exams, setExams] = useState([]);
+  const [assessments, setAssessments] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [activeTab, setActiveTab] = useState('exams'); // 'exams' | 'assessments'
 
   const fetchData = useCallback(async () => {
     try {
-      const [classRes, examRes] = await Promise.all([
+      const [classRes, examRes, assessmentRes] = await Promise.all([
         api.get(`/api/classrooms/${id}`),
         api.get(`/api/classrooms/${id}/exams`),
+        getAssessmentsForClassroom(id),
       ]);
       setClassroom(classRes.data);
       setExams(examRes.data);
+      setAssessments(assessmentRes.data);
     } catch {
       toast.error('Failed to load classroom');
     } finally {
@@ -63,6 +68,7 @@ export default function ClassroomPage() {
 
   return (
     <div className="page">
+      {/* ── Page header ────────────────────────────────────────────────────── */}
       <div className="page-header">
         <div>
           <h2>{classroom.className}</h2>
@@ -72,7 +78,9 @@ export default function ClassroomPage() {
             <Users size={13} style={{ display: 'inline' }} /> {classroom.studentCount} students
           </p>
         </div>
-        {isTeacher && (
+
+        {/* Tab-aware action button */}
+        {isTeacher && activeTab === 'exams' && (
           <button
             className="btn-primary"
             onClick={() => navigate(`/teacher/classroom/${id}/create-exam`)}
@@ -80,74 +88,190 @@ export default function ClassroomPage() {
             <Plus size={16} /> New Exam
           </button>
         )}
+        {isTeacher && activeTab === 'assessments' && (
+          <button
+            className="btn-primary"
+            onClick={() => navigate(`/teacher/classroom/${id}/create-assessment`)}
+          >
+            <Plus size={16} /> New Assessment
+          </button>
+        )}
       </div>
 
-      <h3>Exams</h3>
+      {/* ── Tabs ───────────────────────────────────────────────────────────── */}
+      <div className="tabs" style={{ marginBottom: '1.25rem' }}>
+        <button
+          className={`tab-btn ${activeTab === 'exams' ? 'active' : ''}`}
+          onClick={() => setActiveTab('exams')}
+        >
+          <FileText size={14} style={{ marginRight: '0.35rem' }} />
+          Exams
+          {exams.length > 0 && (
+            <span className="tab-count">{exams.length}</span>
+          )}
+        </button>
+        <button
+          className={`tab-btn ${activeTab === 'assessments' ? 'active' : ''}`}
+          onClick={() => setActiveTab('assessments')}
+        >
+          <ClipboardList size={14} style={{ marginRight: '0.35rem' }} />
+          Assessments
+          {assessments.length > 0 && (
+            <span className="tab-count">{assessments.length}</span>
+          )}
+        </button>
+      </div>
 
-      {exams.length === 0 ? (
-        <div className="empty-state-page">
-          <FileText size={48} />
-          <p>{isTeacher ? 'No exams yet. Create one!' : 'No exams scheduled yet.'}</p>
-        </div>
-      ) : (
-        <div className="card-grid">
-          {exams.map((exam) => {
-            const past = isPastDeadline(exam.deadline);
-            return (
-              <div key={exam.id} className={`exam-card ${past ? 'past' : ''}`}>
-                <div className="exam-card-header">
-                  <h4>{exam.title}</h4>
-                  <div className="exam-card-tools">
-                    <span className={`deadline-badge ${past ? 'past' : 'active'}`}>
-                      {past ? 'Closed' : 'Open'}
-                    </span>
-                    {isTeacher && (
+      {/* ── Exams tab ───────────────────────────────────────────────────────── */}
+      {activeTab === 'exams' && (
+        <>
+          {exams.length === 0 ? (
+            <div className="empty-state-page">
+              <FileText size={48} />
+              <p>{isTeacher ? 'No exams yet. Create one!' : 'No exams scheduled yet.'}</p>
+            </div>
+          ) : (
+            <div className="card-grid">
+              {exams.map((exam) => {
+                const past = isPastDeadline(exam.deadline);
+                return (
+                  <div key={exam.id} className={`exam-card ${past ? 'past' : ''}`}>
+                    <div className="exam-card-header">
+                      <h4>{exam.title}</h4>
+                      <div className="exam-card-tools">
+                        <span className={`deadline-badge ${past ? 'past' : 'active'}`}>
+                          {past ? 'Closed' : 'Open'}
+                        </span>
+                        {isTeacher && (
+                          <button
+                            className="btn-icon danger"
+                            title="Remove exam"
+                            onClick={() => deleteExam(exam)}
+                          >
+                            <Trash2 size={15} />
+                          </button>
+                        )}
+                      </div>
+                    </div>
+
+                    <div className="exam-meta">
+                      <span>Total: <strong>{exam.totalMarks} marks</strong></span>
+                      <span>
+                        <Clock size={13} />
+                        {new Date(exam.deadline).toLocaleDateString('en-IN', {
+                          day: 'numeric', month: 'short', year: 'numeric',
+                          hour: '2-digit', minute: '2-digit'
+                        })}
+                      </span>
+                      {isTeacher && (
+                        <span><FileText size={13} /> {exam.submissionCount} submissions</span>
+                      )}
+                    </div>
+
+                    <div className="exam-actions">
                       <button
-                        className="btn-icon danger"
-                        title="Remove exam"
-                        onClick={() => deleteExam(exam)}
+                        className="btn-primary"
+                        onClick={() => handleExamClick(exam)}
+                        disabled={!isTeacher && past}
                       >
-                        <Trash2 size={15} />
+                        {isTeacher ? 'View Submissions' : past ? 'Deadline Passed' : 'Submit Answer'}
                       </button>
-                    )}
+                      {isTeacher && (
+                        <button
+                          className="btn-secondary"
+                          onClick={() => navigate(`/teacher/exam/${exam.id}/review-queue`)}
+                        >
+                          Review Queue
+                        </button>
+                      )}
+                    </div>
                   </div>
-                </div>
+                );
+              })}
+            </div>
+          )}
+        </>
+      )}
 
-                <div className="exam-meta">
-                  <span>Total: <strong>{exam.totalMarks} marks</strong></span>
-                  <span>
-                    <Clock size={13} />
-                    {new Date(exam.deadline).toLocaleDateString('en-IN', {
-                      day: 'numeric', month: 'short', year: 'numeric',
-                      hour: '2-digit', minute: '2-digit'
-                    })}
-                  </span>
-                  {isTeacher && (
-                    <span><FileText size={13} /> {exam.submissionCount} submissions</span>
-                  )}
-                </div>
+      {/* ── Assessments tab ─────────────────────────────────────────────────── */}
+      {activeTab === 'assessments' && (
+        <>
+          {assessments.length === 0 ? (
+            <div className="empty-state-page">
+              <ClipboardList size={48} />
+              <p>
+                {isTeacher
+                  ? 'No assessments yet. Create one!'
+                  : 'No assessments available yet.'}
+              </p>
+            </div>
+          ) : (
+            <div className="card-grid">
+              {assessments.map((assessment) => {
+                const past = isPastDeadline(assessment.deadline);
+                return (
+                  <div key={assessment.id} className={`exam-card ${past ? 'past' : ''}`}>
+                    <div className="exam-card-header">
+                      <h4>{assessment.title}</h4>
+                      <div className="exam-card-tools">
+                        <span className={`deadline-badge ${past ? 'past' : 'active'}`}>
+                          {past ? 'Closed' : 'Open'}
+                        </span>
+                      </div>
+                    </div>
 
-                <div className="exam-actions">
-                  <button
-                    className="btn-primary"
-                    onClick={() => handleExamClick(exam)}
-                    disabled={!isTeacher && past}
-                  >
-                    {isTeacher ? 'View Submissions' : past ? 'Deadline Passed' : 'Submit Answer'}
-                  </button>
-                  {isTeacher && (
-                    <button
-                      className="btn-secondary"
-                      onClick={() => navigate(`/teacher/exam/${exam.id}/review-queue`)}
-                    >
-                      Review Queue
-                    </button>
-                  )}
-                </div>
-              </div>
-            );
-          })}
-        </div>
+                    {assessment.description && (
+                      <p style={{
+                        fontSize: '0.82rem',
+                        color: 'var(--text-muted, #888)',
+                        margin: '0.25rem 0 0.5rem',
+                        lineHeight: 1.4,
+                      }}>
+                        {assessment.description}
+                      </p>
+                    )}
+
+                    <div className="exam-meta">
+                      <span>Total: <strong>{assessment.totalMarks} marks</strong></span>
+                      <span>
+                        <FileText size={13} /> {assessment.questions.length} question{assessment.questions.length !== 1 ? 's' : ''}
+                      </span>
+                      {assessment.durationMinutes && (
+                        <span><Clock size={13} /> {assessment.durationMinutes} min</span>
+                      )}
+                      <span>
+                        <Clock size={13} />
+                        {new Date(assessment.deadline).toLocaleDateString('en-IN', {
+                          day: 'numeric', month: 'short', year: 'numeric',
+                          hour: '2-digit', minute: '2-digit'
+                        })}
+                      </span>
+                    </div>
+
+                    <div className="exam-actions">
+                      {isTeacher ? (
+                        <button
+                          className="btn-primary"
+                          onClick={() => navigate(`/teacher/assessment/${assessment.id}/results`)}
+                        >
+                          View Results
+                        </button>
+                      ) : (
+                        <button
+                          className="btn-primary"
+                          onClick={() => navigate(`/student/assessment/${assessment.id}/take`)}
+                          disabled={past}
+                        >
+                          {past ? 'Deadline Passed' : 'Take Assessment'}
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </>
       )}
     </div>
   );
