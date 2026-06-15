@@ -11,6 +11,18 @@ import {
 
 const COLORS = ['#4f46e5', '#16a34a', '#d97706', '#dc2626', '#0891b2'];
 
+function getPillClass(pct) {
+  if (pct >= 75) return 'deadline-badge active';
+  if (pct >= 50) return 'deadline-badge';
+  return 'deadline-badge past';
+}
+
+function getPillStyle(pct) {
+  if (pct >= 75) return {};
+  if (pct >= 50) return { background: '#fef9c3', color: '#d97706' };
+  return {};
+}
+
 export default function AnalyticsPage() {
   const { classroomId } = useParams();
   const navigate = useNavigate();
@@ -38,7 +50,6 @@ export default function AnalyticsPage() {
   if (loading) return <div className="loading">Loading analytics...</div>;
   if (!analytics) return <div className="error">No analytics available yet.</div>;
 
-  // Prepare chart data
   const examPerformanceData = analytics.examStats?.map((e) => ({
     name: e.examTitle?.length > 15 ? e.examTitle.substring(0, 15) + '...' : e.examTitle,
     average: parseFloat((e.averageMarks || 0).toFixed(1)),
@@ -47,22 +58,23 @@ export default function AnalyticsPage() {
   })) || [];
 
   const submissionStatusData = [
-    { name: 'Reviewed',     value: analytics.reviewedCount     || 0 },
-    { name: 'AI Evaluated', value: analytics.aiEvaluatedCount  || 0 },
-    { name: 'Processing',   value: analytics.processingCount   || 0 },
-    { name: 'Pending',      value: analytics.pendingCount      || 0 },
+    { name: 'Reviewed',     value: analytics.reviewedCount    || 0 },
+    { name: 'AI Evaluated', value: analytics.aiEvaluatedCount || 0 },
+    { name: 'Processing',   value: analytics.processingCount  || 0 },
+    { name: 'Pending',      value: analytics.pendingCount     || 0 },
   ].filter(d => d.value > 0);
 
   const weakKeywords = analytics.weakKeywords || [];
 
   return (
     <div className="page">
-      <button className="btn-back" onClick={() => navigate(`/teacher/classroom/${classroomId}`)}>
-        <ArrowLeft size={16} /> Back to Classroom
-      </button>
 
+      {/* ── Header ── */}
       <div className="page-header">
         <div>
+          <button className="btn-back" onClick={() => navigate(`/teacher/classroom/${classroomId}`)}>
+            <ArrowLeft size={15} /> Back to Classroom
+          </button>
           <h2>{classroom?.className} — Analytics</h2>
           <p className="page-subtitle">Performance overview across all exams</p>
         </div>
@@ -77,18 +89,18 @@ export default function AnalyticsPage() {
             }
           }}
         >
-          <Download size={15} /> Download Full Report
+          <Download size={15} /> Download report
         </button>
       </div>
 
-      {/* Summary stats */}
+      {/* ── Stat cards ── */}
       <div className="analytics-stats-grid">
         <div className="stat-card">
           <div className="stat-icon" style={{ background: '#ede9fe' }}>
             <Users size={20} color="#4f46e5" />
           </div>
           <div>
-            <p className="stat-label">Total Students</p>
+            <p className="stat-label">Total students</p>
             <p className="stat-value">{analytics.totalStudents || 0}</p>
           </div>
         </div>
@@ -98,7 +110,7 @@ export default function AnalyticsPage() {
             <FileText size={20} color="#16a34a" />
           </div>
           <div>
-            <p className="stat-label">Total Exams</p>
+            <p className="stat-label">Total exams</p>
             <p className="stat-value">{analytics.totalExams || 0}</p>
           </div>
         </div>
@@ -108,7 +120,7 @@ export default function AnalyticsPage() {
             <TrendingUp size={20} color="#d97706" />
           </div>
           <div>
-            <p className="stat-label">Avg Score</p>
+            <p className="stat-label">Avg score</p>
             <p className="stat-value">
               {analytics.overallAverage != null
                 ? `${analytics.overallAverage.toFixed(1)}%`
@@ -122,43 +134,67 @@ export default function AnalyticsPage() {
             <AlertCircle size={20} color="#dc2626" />
           </div>
           <div>
-            <p className="stat-label">Pending Reviews</p>
+            <p className="stat-label">Pending reviews</p>
             <p className="stat-value">{analytics.pendingReviews || 0}</p>
           </div>
         </div>
       </div>
 
-      {/* Exam performance chart */}
+      {/* ── Bar chart ── */}
       {examPerformanceData.length > 0 && (
         <div className="card">
-          <h3>Average Marks per Exam</h3>
-          <p className="page-subtitle" style={{ marginBottom: '1rem' }}>
-            Average AI + teacher marks across all submissions
+          <h3 style={{ marginBottom: '0.25rem' }}>Average marks per exam</h3>
+          <p className="page-subtitle" style={{ marginBottom: '1.25rem' }}>
+            AI + teacher marks averaged across all submissions
           </p>
-          <ResponsiveContainer width="100%" height={280}>
-            <BarChart data={examPerformanceData} margin={{ top: 10, right: 20, left: 0, bottom: 20 }}>
-              <CartesianGrid strokeDasharray="3 3" stroke="#f3f4f6" />
-              <XAxis dataKey="name" tick={{ fontSize: 12 }} />
-              <YAxis tick={{ fontSize: 12 }} />
+          <ResponsiveContainer width="100%" height={260}>
+            <BarChart data={examPerformanceData} margin={{ top: 8, right: 16, left: 0, bottom: 16 }}>
+              <CartesianGrid strokeDasharray="3 3" stroke="#f3f4f6" vertical={false} />
+              <XAxis
+                dataKey="name"
+                tick={{ fontSize: 12, fill: '#6b7280' }}
+                axisLine={false}
+                tickLine={false}
+              />
+              <YAxis
+                tick={{ fontSize: 12, fill: '#6b7280' }}
+                axisLine={false}
+                tickLine={false}
+              />
               <Tooltip
+                contentStyle={{ borderRadius: 8, border: '1px solid #e5e7eb', fontSize: 13 }}
                 formatter={(value, name) => [
                   name === 'average' ? `${value} marks` : value,
-                  name === 'average' ? 'Average Marks' : 'Submissions'
+                  name === 'average' ? 'Average marks' : 'Submissions',
                 ]}
               />
-              <Bar dataKey="average" fill="#4f46e5" radius={[4, 4, 0, 0]} name="average" />
+              <Bar dataKey="average" fill="#4f46e5" radius={[4, 4, 0, 0]} name="average" maxBarSize={48} />
             </BarChart>
           </ResponsiveContainer>
         </div>
       )}
 
+      {/* ── Pie + Keywords ── */}
       <div className="analytics-two-col">
 
-        {/* Submission status pie */}
         {submissionStatusData.length > 0 && (
           <div className="card">
-            <h3>Submission Status</h3>
-            <ResponsiveContainer width="100%" height={250}>
+            <h3 style={{ marginBottom: '0.25rem' }}>Submission status</h3>
+            <p className="page-subtitle" style={{ marginBottom: '1rem' }}>
+              Breakdown of all student submissions
+            </p>
+
+            {/* custom legend */}
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: '10px 20px', marginBottom: '0.75rem' }}>
+              {submissionStatusData.map((d, i) => (
+                <span key={i} style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 12, color: '#6b7280' }}>
+                  <span style={{ width: 10, height: 10, borderRadius: 2, background: COLORS[i % COLORS.length], display: 'inline-block' }} />
+                  {d.name} — {d.value}
+                </span>
+              ))}
+            </div>
+
+            <ResponsiveContainer width="100%" height={220}>
               <PieChart>
                 <Pie
                   data={submissionStatusData}
@@ -173,16 +209,15 @@ export default function AnalyticsPage() {
                     <Cell key={index} fill={COLORS[index % COLORS.length]} />
                   ))}
                 </Pie>
-                <Tooltip />
-                <Legend />
+                <Tooltip contentStyle={{ borderRadius: 8, border: '1px solid #e5e7eb', fontSize: 13 }} />
               </PieChart>
             </ResponsiveContainer>
           </div>
         )}
 
-        {/* Weak keywords */}
+        {/* Keywords */}
         <div className="card">
-          <h3>Commonly Missed Keywords</h3>
+          <h3 style={{ marginBottom: '0.25rem' }}>Commonly missed keywords</h3>
           <p className="page-subtitle" style={{ marginBottom: '1rem' }}>
             Topics students frequently miss across exams
           </p>
@@ -210,34 +245,44 @@ export default function AnalyticsPage() {
 
       </div>
 
-      {/* Per exam breakdown table */}
-      {examPerformanceData.length > 0 && (
+      {/* ── Exam breakdown table ── */}
+      {analytics.examStats?.length > 0 && (
         <div className="card">
-          <h3>Exam Breakdown</h3>
+          <h3 style={{ marginBottom: '1rem' }}>Exam breakdown</h3>
           <table className="results-table">
             <thead>
               <tr>
                 <th>Exam</th>
-                <th>Total Marks</th>
+                <th>Total marks</th>
                 <th>Submissions</th>
-                <th>Average Marks</th>
+                <th>Avg marks</th>
                 <th>Avg %</th>
               </tr>
             </thead>
             <tbody>
-              {analytics.examStats?.map((e) => (
-                <tr key={e.examId}>
-                  <td><strong>{e.examTitle}</strong></td>
-                  <td>{e.totalMarks}</td>
-                  <td>{e.submissionCount}</td>
-                  <td>{e.averageMarks != null ? e.averageMarks.toFixed(1) : '—'}</td>
-                  <td>
-                    {e.averageMarks != null && e.totalMarks
-                      ? `${((e.averageMarks / e.totalMarks) * 100).toFixed(0)}%`
-                      : '—'}
-                  </td>
-                </tr>
-              ))}
+              {analytics.examStats.map((e) => {
+                const pct = e.averageMarks != null && e.totalMarks
+                  ? Math.round((e.averageMarks / e.totalMarks) * 100)
+                  : null;
+                return (
+                  <tr key={e.examId}>
+                    <td><strong>{e.examTitle}</strong></td>
+                    <td>{e.totalMarks}</td>
+                    <td>{e.submissionCount}</td>
+                    <td>{e.averageMarks != null ? e.averageMarks.toFixed(1) : '—'}</td>
+                    <td>
+                      {pct != null ? (
+                        <span
+                          className={getPillClass(pct)}
+                          style={getPillStyle(pct)}
+                        >
+                          {pct}%
+                        </span>
+                      ) : '—'}
+                    </td>
+                  </tr>
+                );
+              })}
             </tbody>
           </table>
         </div>
