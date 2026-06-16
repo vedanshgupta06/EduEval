@@ -176,6 +176,18 @@ export default function ExamSubmitPage() {
         {/* ── SINGLE ANSWER MODE ──────────────────────────────────────────── */}
         {!exam.isMultiQuestion && (
           <form onSubmit={handleSingleSubmit} className="submit-form">
+
+            {exam.questionText && (
+              <div className="card" style={{ background: 'var(--gray-50)', marginBottom: '0.5rem' }}>
+                <p className="field-hint" style={{ marginBottom: '0.4rem', fontWeight: 600, color: 'var(--gray-800)' }}>
+                  Question
+                </p>
+                <p style={{ fontSize: '0.95rem', color: 'var(--gray-800)', lineHeight: 1.6 }}>
+                  {exam.questionText}
+                </p>
+              </div>
+            )}
+
             <div className="form-group">
               <label>Upload Answer Sheet</label>
               <p className="field-hint">PDF, JPEG, PNG or WEBP — max 20MB</p>
