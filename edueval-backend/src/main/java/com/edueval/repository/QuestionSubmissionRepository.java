@@ -20,6 +20,7 @@ public interface QuestionSubmissionRepository extends JpaRepository<QuestionSubm
  
     List<QuestionSubmission> findBySubmissionIdAndStatus(UUID submissionId, String status);
 
+    
     @Modifying
     @Query(value = """
         DELETE FROM question_submissions qs
