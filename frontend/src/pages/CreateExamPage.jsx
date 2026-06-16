@@ -14,6 +14,7 @@ export default function CreateExamPage() {
   // Single-answer mode
   const [form, setForm] = useState({
     title: '',
+    questionText: '',
     totalMarks: '',
     deadline: '',
     modelAnswerText: '',
@@ -44,7 +45,6 @@ export default function CreateExamPage() {
       let payload;
 
       if (isMultiQuestion) {
-        // Validate all questions filled
         for (let i = 0; i < questions.length; i++) {
           const q = questions[i];
           if (!q.questionText.trim() || !q.marks || !q.modelAnswerText.trim()) {
@@ -65,8 +65,14 @@ export default function CreateExamPage() {
           })),
         };
       } else {
+        if (!form.questionText.trim()) {
+          toast.error('Question text is required');
+          setLoading(false);
+          return;
+        }
         payload = {
           title: form.title,
+          questionText: form.questionText,
           totalMarks: parseInt(form.totalMarks),
           deadline: new Date(form.deadline).toISOString(),
           modelAnswerText: form.modelAnswerText,
@@ -98,7 +104,6 @@ export default function CreateExamPage() {
       <div className="card form-card">
         <form onSubmit={handleSubmit} className="exam-form">
 
-          {/* Title + Deadline — always shown */}
           <div className="form-group">
             <label>Exam Title</label>
             <input
@@ -121,7 +126,6 @@ export default function CreateExamPage() {
             />
           </div>
 
-          {/* Mode toggle */}
           <div className="form-group">
             <label>Exam Type</label>
             <div style={{ display: 'flex', gap: '0.75rem', marginTop: '0.4rem' }}>
@@ -147,9 +151,20 @@ export default function CreateExamPage() {
             </p>
           </div>
 
-          {/* ── Single mode ───────────────────────────────────────────────── */}
           {!isMultiQuestion && (
             <>
+              <div className="form-group">
+                <label>Question Text</label>
+                <p className="field-hint">The question students will see and answer.</p>
+                <textarea
+                  placeholder="e.g. Explain the concept of recursion with an example."
+                  value={form.questionText}
+                  onChange={(e) => setForm({ ...form, questionText: e.target.value })}
+                  rows={3}
+                  required
+                />
+              </div>
+
               <div className="form-row">
                 <div className="form-group">
                   <label>Total Marks</label>
@@ -180,7 +195,6 @@ export default function CreateExamPage() {
             </>
           )}
 
-          {/* ── Multi-question mode ───────────────────────────────────────── */}
           {isMultiQuestion && (
             <div className="form-group">
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.75rem' }}>
