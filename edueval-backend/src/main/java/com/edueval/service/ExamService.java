@@ -60,6 +60,7 @@ public class ExamService {
         Exam exam = Exam.builder()
                 .classroom(classroom)
                 .title(request.title())
+                .questionText(isMulti ? null : request.questionText())
                 .totalMarks(totalMarks)
                 .deadline(request.deadline())
                 .modelAnswerUrl(request.modelAnswerUrl())
@@ -160,6 +161,7 @@ public class ExamService {
         return new ExamResponse(
                 e.getId(),
                 e.getTitle(),
+                e.getQuestionText(),
                 e.getTotalMarks(),
                 e.getDeadline(),
                 e.getModelAnswerUrl(),
