@@ -3,6 +3,7 @@ package com.edueval.service;
 import com.edueval.dto.response.QuestionEvaluationResponse;
 import com.edueval.dto.request.QuestionOverrideRequest;
 import com.edueval.entity.*;
+import com.edueval.enums.SubmissionStatus;
 import com.edueval.repository.*;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import jakarta.persistence.EntityNotFoundException;
@@ -19,6 +20,7 @@ public class QuestionEvaluationService {
 
     private final QuestionEvaluationRepository questionEvaluationRepository;
     private final QuestionSubmissionRepository questionSubmissionRepository;
+    private final SubmissionRepository submissionRepository;   // ← ADD THIS
     private final UserRepository userRepository;
     private final ObjectMapper objectMapper;
 
@@ -43,10 +45,32 @@ public class QuestionEvaluationService {
         eval.setReviewedAt(LocalDateTime.now());
         questionEvaluationRepository.save(eval);
 
-        // Mark question submission as REVIEWED
+        // Mark this question submission as REVIEWED
         QuestionSubmission qs = eval.getQuestionSubmission();
         qs.setStatus("REVIEWED");
         questionSubmissionRepository.save(qs);
+
+        // ── Update parent Submission status ────────────────────────────────────
+        UUID submissionId = qs.getSubmission().getId();
+
+        List<QuestionSubmission> allQuestions =
+                questionSubmissionRepository.findBySubmissionId(submissionId);
+
+        boolean allReviewed = allQuestions.stream()
+                .allMatch(q -> "REVIEWED".equals(q.getStatus()));
+
+        Submission submission = submissionRepository.findById(submissionId)
+                .orElseThrow(() -> new EntityNotFoundException("Submission not found"));
+
+        if (allReviewed) {
+            submission.setStatus(SubmissionStatus.REVIEWED);
+        } else {
+            // Some questions still pending review — keep as AI_EVALUATED
+            submission.setStatus(SubmissionStatus.AI_EVALUATED);
+        }
+
+        submissionRepository.save(submission);
+        // ───────────────────────────────────────────────────────────────────────
 
         return toResponse(eval);
     }
@@ -62,16 +86,16 @@ public class QuestionEvaluationService {
                 .toList();
     }
 
-    // ── Aggregate totals (used by parent submission/evaluation endpoint) ───────
+    // ── Aggregate totals ───────────────────────────────────────────────────────
 
     public record AggregatedScore(double aiTotal, double teacherTotal, double effectiveTotal,
                                    int questionCount) {}
 
     public AggregatedScore aggregate(UUID submissionId) {
         List<QuestionEvaluationResponse> list = getForSubmission(submissionId);
-        double ai = list.stream().mapToDouble(r -> r.getAiMarks() != null ? r.getAiMarks() : 0).sum();
-        double teacher = list.stream().mapToDouble(r -> r.getTeacherMarks() != null ? r.getTeacherMarks() : 0).sum();
-        double effective = list.stream().mapToDouble(r -> r.getEffectiveMarks() != null ? r.getEffectiveMarks() : 0).sum();
+        double ai        = list.stream().mapToDouble(r -> r.getAiMarks()       != null ? r.getAiMarks()       : 0).sum();
+        double teacher   = list.stream().mapToDouble(r -> r.getTeacherMarks()  != null ? r.getTeacherMarks()  : 0).sum();
+        double effective = list.stream().mapToDouble(r -> r.getEffectiveMarks()!= null ? r.getEffectiveMarks(): 0).sum();
         return new AggregatedScore(ai, teacher, effective, list.size());
     }
 
@@ -90,7 +114,6 @@ public class QuestionEvaluationService {
         r.setAiConfidence(eval.getAiConfidence());
         r.setStatus(qs.getStatus());
 
-        // Parse JSON feedback
         try {
             if (eval.getAiFeedbackJson() != null) {
                 r.setAiFeedback(objectMapper.readValue(eval.getAiFeedbackJson(), Object.class));
