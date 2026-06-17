@@ -72,17 +72,6 @@ export default function TakeAssessmentPage() {
 
   // ── Countdown timer ───────────────────────────────────────────────────────
 
-  useEffect(() => {
-    if (timeLeft === null) return;
-    if (timeLeft <= 0) {
-      toast.error('Time is up! Submitting automatically...');
-      handleSubmit(true);
-      return;
-    }
-    timerRef.current = setTimeout(() => setTimeLeft(t => t - 1), 1000);
-    return () => clearTimeout(timerRef.current);
-  }, [timeLeft]);
-
   const formatTime = (secs) => {
     const m = Math.floor(secs / 60).toString().padStart(2, '0');
     const s = (secs % 60).toString().padStart(2, '0');
@@ -96,8 +85,9 @@ export default function TakeAssessmentPage() {
 
   const toggleMultiSelect = (questionId, optionIndex) => {
     setAnswers(prev => {
-      let current = [];
-      try { current = JSON.parse(prev[questionId] || '[]'); } catch { current = []; }
+      const current = (() => {
+        try { return JSON.parse(prev[questionId] || '[]'); } catch { return []; }
+      })();
       const exists = current.includes(optionIndex);
       const next = exists ? current.filter(i => i !== optionIndex) : [...current, optionIndex];
       return { ...prev, [questionId]: JSON.stringify(next) };
@@ -148,6 +138,17 @@ export default function TakeAssessmentPage() {
       setSubmitting(false);
     }
   }, [assessment, answers, assessmentId, submitting, navigate]);
+
+  useEffect(() => {
+    if (timeLeft === null) return;
+    if (timeLeft <= 0) {
+      toast.error('Time is up! Submitting automatically...');
+      handleSubmit(true);
+      return;
+    }
+    timerRef.current = setTimeout(() => setTimeLeft(t => t - 1), 1000);
+    return () => clearTimeout(timerRef.current);
+  }, [timeLeft, handleSubmit]);
 
   // ── Render helpers ────────────────────────────────────────────────────────
 
@@ -222,8 +223,8 @@ export default function TakeAssessmentPage() {
           <div style={{
             padding: '0.75rem 1.25rem',
             borderRadius: '8px',
-            background: isLowTime ? 'var(--danger-bg, #fee2e2)' : 'var(--primary-bg, #eef2ff)',
-            color: isLowTime ? 'var(--danger, #dc2626)' : 'var(--primary, #4f46e5)',
+            background: isLowTime ? 'var(--danger-bg, #fee2e2)' : 'var(--primary-bg, #e8f5ff)',
+            color: isLowTime ? 'var(--danger, #dc2626)' : 'var(--primary, #0b83db)',
             fontWeight: 700,
             fontSize: '1.4rem',
             fontFamily: 'monospace',
@@ -240,7 +241,7 @@ export default function TakeAssessmentPage() {
         <div key={q.id} className="card form-card" style={{ marginBottom: '1rem' }}>
 
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '0.75rem' }}>
-            <span style={{ fontSize: '0.75rem', fontWeight: 600, color: 'var(--primary, #4f46e5)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+            <span style={{ fontSize: '0.75rem', fontWeight: 600, color: 'var(--primary, #0b83db)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
               {q.questionType === 'MCQ' ? 'MCQ' : q.questionType === 'MULTI_SELECT' ? 'Multi-select' : 'Descriptive'}
             </span>
             <span style={{ fontSize: '0.85rem', color: 'var(--text-muted, #888)' }}>
@@ -262,8 +263,8 @@ export default function TakeAssessmentPage() {
                   <label key={oIdx} style={{
                     display: 'flex', alignItems: 'center', gap: '0.75rem',
                     padding: '0.6rem 0.9rem', borderRadius: '8px', cursor: 'pointer',
-                    border: `1.5px solid ${selected ? 'var(--primary, #4f46e5)' : 'var(--border, #e5e7eb)'}`,
-                    background: selected ? 'var(--primary-bg, #eef2ff)' : 'transparent',
+                    border: `1.5px solid ${selected ? 'var(--primary, #0b83db)' : 'var(--border, #e5e7eb)'}`,
+                    background: selected ? 'var(--primary-bg, #e8f5ff)' : 'transparent',
                     transition: 'all 0.15s',
                   }}>
                     <input
@@ -271,7 +272,7 @@ export default function TakeAssessmentPage() {
                       name={`mcq-${q.id}`}
                       checked={selected}
                       onChange={() => setMcqAnswer(q.id, oIdx)}
-                      style={{ accentColor: 'var(--primary, #4f46e5)' }}
+                      style={{ accentColor: 'var(--primary, #0b83db)' }}
                     />
                     <span>{opt}</span>
                   </label>
@@ -291,15 +292,15 @@ export default function TakeAssessmentPage() {
                     <label key={oIdx} style={{
                       display: 'flex', alignItems: 'center', gap: '0.75rem',
                       padding: '0.6rem 0.9rem', borderRadius: '8px', cursor: 'pointer',
-                      border: `1.5px solid ${selected ? 'var(--primary, #4f46e5)' : 'var(--border, #e5e7eb)'}`,
-                      background: selected ? 'var(--primary-bg, #eef2ff)' : 'transparent',
+                      border: `1.5px solid ${selected ? 'var(--primary, #0b83db)' : 'var(--border, #e5e7eb)'}`,
+                      background: selected ? 'var(--primary-bg, #e8f5ff)' : 'transparent',
                       transition: 'all 0.15s',
                     }}>
                       <input
                         type="checkbox"
                         checked={selected}
                         onChange={() => toggleMultiSelect(q.id, oIdx)}
-                        style={{ accentColor: 'var(--primary, #4f46e5)' }}
+                        style={{ accentColor: 'var(--primary, #0b83db)' }}
                       />
                       <span>{opt}</span>
                     </label>

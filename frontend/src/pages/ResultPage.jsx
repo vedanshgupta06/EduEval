@@ -380,7 +380,7 @@ export default function ResultPage() {
                 {/* question header */}
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '1rem', marginBottom: '0.75rem' }}>
                   <div>
-                    <span style={{ fontWeight: 700, color: 'var(--primary)' }}>Q{qe.questionNo}</span>
+                    <span style={{ fontWeight: 700, color: 'var(--primary, #0b83db)' }}>Q{qe.questionNo}</span>
                     <span className="field-hint" style={{ marginLeft: '0.5rem' }}>
                       {qe.maxMarks} marks
                     </span>

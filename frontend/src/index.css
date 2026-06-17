@@ -3,8 +3,10 @@
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
 :root {
-  --primary:      #4f46e5;
-  --primary-dark: #4338ca;
+  --primary:      #0b83db;
+  --primary-dark: #075fa1;
+  --primary-bg:   #e8f5ff;
+  --primary-soft: #d7ecfb;
   --success:      #16a34a;
   --warning:      #d97706;
   --danger:       #dc2626;
@@ -253,6 +255,23 @@ a:hover { text-decoration: underline; }
 
 .exam-meta { display: flex; flex-direction: column; gap: 0.3rem; font-size: 0.82rem; color: var(--gray-600); }
 .exam-meta span { display: flex; align-items: center; gap: 0.3rem; }
+.deadline-edit-panel {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto auto;
+  gap: 0.5rem;
+  align-items: center;
+  margin-top: 0.85rem;
+  padding-top: 0.85rem;
+  border-top: 1px solid var(--gray-200);
+}
+.deadline-edit-panel input {
+  width: 100%;
+  min-width: 0;
+  padding: 0.55rem 0.7rem;
+  border: 1px solid var(--gray-300);
+  border-radius: 6px;
+  font: inherit;
+}
 .exam-actions { display: flex; gap: 0.5rem; flex-wrap: wrap; }
 .exam-actions .btn-primary, .exam-actions .btn-secondary { flex: 1; justify-content: center; font-size: 0.82rem; }
 
@@ -491,7 +510,7 @@ a:hover { text-decoration: underline; }
 .form-group textarea:focus {
   outline: none;
   border-color: var(--primary);
-  box-shadow: 0 0 0 3px rgba(79,70,229,0.1);
+  box-shadow: 0 0 0 3px rgba(11, 131, 219, 0.12);
 }
 
 .form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; }
@@ -521,7 +540,7 @@ a:hover { text-decoration: underline; }
 
 .drop-zone:hover, .drop-zone.drag-over {
   border-color: var(--primary);
-  background: rgba(79,70,229,0.04);
+  background: rgba(11, 131, 219, 0.05);
 }
 
 .drop-zone.has-file { border-color: var(--success); background: #f0fdf4; color: var(--success); }
@@ -596,7 +615,7 @@ a:hover { text-decoration: underline; }
 
 .icon-green { color: var(--success); }
 .icon-orange { color: var(--warning); }
-.icon-blue { color: #2563eb; }
+.icon-blue { color: var(--primary); }
 .icon-gray { color: var(--gray-400); }
 
 /* ── Filter tabs ──────────────────────────────────────────────────────────── */
@@ -897,8 +916,8 @@ a:hover { text-decoration: underline; }
 
 .processing-state h3 { font-size: 1.2rem; color: var(--gray-800); }
 
-.teacher-comment-card { background: #eff6ff; border-color: #bfdbfe; }
-.teacher-comment-card h4 { color: #1d4ed8; margin-bottom: 0.5rem; }
+.teacher-comment-card { background: var(--primary-bg); border-color: var(--primary-soft); }
+.teacher-comment-card h4 { color: var(--primary-dark); margin-bottom: 0.5rem; }
 
 .notice-card {
   background: #fffbeb;
@@ -1031,6 +1050,9 @@ a:hover { text-decoration: underline; }
   .basis-summary { grid-template-columns: 1fr; }
   .navbar-right .nav-name { display: none; }
   .card-grid { grid-template-columns: 1fr; }
+  .deadline-edit-panel { grid-template-columns: 1fr; }
+  .deadline-edit-panel .btn-primary,
+  .deadline-edit-panel .btn-secondary { justify-content: center; }
 }
 
 
@@ -1064,8 +1086,8 @@ a:hover { text-decoration: underline; }
 }
 
 .tab-btn.active {
-  color: var(--primary, #4f46e5);
-  border-bottom-color: var(--primary, #4f46e5);
+  color: var(--primary, #0b83db);
+  border-bottom-color: var(--primary, #0b83db);
   background: transparent;
 }
 
@@ -1084,6 +1106,6 @@ a:hover { text-decoration: underline; }
 }
 
 .tab-btn.active .tab-count {
-  background: var(--primary-bg, #eef2ff);
-  color: var(--primary, #4f46e5);
+  background: var(--primary-bg, #e8f5ff);
+  color: var(--primary, #0b83db);
 }

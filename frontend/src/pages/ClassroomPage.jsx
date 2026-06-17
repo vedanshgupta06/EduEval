@@ -3,7 +3,7 @@ import { useParams, useNavigate } from 'react-router-dom';
 import api from '../api/axios';
 import toast from 'react-hot-toast';
 import { useAuth } from '../context/useAuth';
-import { Plus, Clock, Users, FileText, Trash2, ClipboardList } from 'lucide-react';
+import { Plus, Clock, Users, FileText, Trash2, ClipboardList, Pencil, Save, X } from 'lucide-react';
 import { getAssessmentsForClassroom } from '../api/assessments';
 
 export default function ClassroomPage() {
@@ -17,6 +17,9 @@ export default function ClassroomPage() {
   const [assessments, setAssessments] = useState([]);
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState('exams'); // 'exams' | 'assessments'
+  const [editingDeadlineId, setEditingDeadlineId] = useState(null);
+  const [deadlineDraft, setDeadlineDraft] = useState('');
+  const [savingDeadline, setSavingDeadline] = useState(false);
 
   const fetchData = useCallback(async () => {
     try {
@@ -39,6 +42,14 @@ export default function ClassroomPage() {
 
   const isPastDeadline = (deadline) => new Date(deadline) < new Date();
 
+  const toDateTimeLocal = (value) => {
+    if (!value) return '';
+    const date = new Date(value);
+    if (Number.isNaN(date.getTime())) return '';
+    const offsetMs = date.getTimezoneOffset() * 60 * 1000;
+    return new Date(date.getTime() - offsetMs).toISOString().slice(0, 16);
+  };
+
   const handleExamClick = (exam) => {
     if (isTeacher) {
       navigate(`/teacher/exam/${exam.id}/submissions`);
@@ -60,6 +71,43 @@ export default function ClassroomPage() {
       fetchData();
     } catch (err) {
       toast.error(err.response?.data?.message || 'Failed to remove exam');
+    }
+  };
+
+  const startDeadlineEdit = (exam) => {
+    setEditingDeadlineId(exam.id);
+    setDeadlineDraft(toDateTimeLocal(exam.deadline));
+  };
+
+  const cancelDeadlineEdit = () => {
+    setEditingDeadlineId(null);
+    setDeadlineDraft('');
+  };
+
+  const saveDeadline = async (exam) => {
+    if (!deadlineDraft) {
+      toast.error('Select a new deadline');
+      return;
+    }
+
+    const nextDeadline = new Date(deadlineDraft);
+    if (nextDeadline <= new Date()) {
+      toast.error('Deadline must be in the future');
+      return;
+    }
+
+    setSavingDeadline(true);
+    try {
+      await api.put(`/api/teacher/exams/${exam.id}`, {
+        deadline: nextDeadline.toISOString(),
+      });
+      toast.success('Exam deadline updated');
+      cancelDeadlineEdit();
+      fetchData();
+    } catch (err) {
+      toast.error(err.response?.data?.message || 'Failed to update deadline');
+    } finally {
+      setSavingDeadline(false);
     }
   };
 
@@ -143,13 +191,22 @@ export default function ClassroomPage() {
                           {past ? 'Closed' : 'Open'}
                         </span>
                         {isTeacher && (
-                          <button
-                            className="btn-icon danger"
-                            title="Remove exam"
-                            onClick={() => deleteExam(exam)}
-                          >
-                            <Trash2 size={15} />
-                          </button>
+                          <>
+                            <button
+                              className="btn-icon"
+                              title="Edit deadline"
+                              onClick={() => startDeadlineEdit(exam)}
+                            >
+                              <Pencil size={15} />
+                            </button>
+                            <button
+                              className="btn-icon danger"
+                              title="Remove exam"
+                              onClick={() => deleteExam(exam)}
+                            >
+                              <Trash2 size={15} />
+                            </button>
+                          </>
                         )}
                       </div>
                     </div>
@@ -167,6 +224,35 @@ export default function ClassroomPage() {
                         <span><FileText size={13} /> {exam.submissionCount} submissions</span>
                       )}
                     </div>
+
+                    {isTeacher && editingDeadlineId === exam.id && (
+                      <div className="deadline-edit-panel">
+                        <input
+                          type="datetime-local"
+                          value={deadlineDraft}
+                          min={new Date().toISOString().slice(0, 16)}
+                          onChange={(e) => setDeadlineDraft(e.target.value)}
+                        />
+                        <button
+                          className="btn-primary"
+                          onClick={() => saveDeadline(exam)}
+                          disabled={savingDeadline}
+                          title="Save deadline"
+                        >
+                          <Save size={14} />
+                          {savingDeadline ? 'Saving...' : 'Save'}
+                        </button>
+                        <button
+                          className="btn-secondary"
+                          onClick={cancelDeadlineEdit}
+                          disabled={savingDeadline}
+                          title="Cancel deadline edit"
+                        >
+                          <X size={14} />
+                          Cancel
+                        </button>
+                      </div>
+                    )}
 
                     <div className="exam-actions">
                       <button

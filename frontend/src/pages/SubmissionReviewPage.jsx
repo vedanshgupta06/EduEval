@@ -3,7 +3,7 @@ import { useParams, useNavigate } from 'react-router-dom';
 import api from '../api/axios';
 import toast from 'react-hot-toast';
 import FeedbackCard from '../components/FeedbackCard';
-import { Save, RefreshCw, ArrowLeft, Clock, AlertCircle, FileText, CheckCircle2, XCircle } from 'lucide-react';
+import { Save, RefreshCw, ArrowLeft, Clock, AlertCircle, FileText, CheckCircle2 } from 'lucide-react';
 
 function getExtractedText(aiFeedback) {
   const feedback = aiFeedback?.feedback || aiFeedback;
@@ -411,7 +411,7 @@ export default function SubmissionReviewPage() {
                 {/* Question header */}
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '1rem', marginBottom: '0.75rem' }}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem', flexWrap: 'wrap' }}>
-                    <span style={{ fontWeight: 700, color: 'var(--primary)', fontSize: '1rem' }}>
+                    <span style={{ fontWeight: 700, color: 'var(--primary, #0b83db)', fontSize: '1rem' }}>
                       Q{qe.questionNo}
                     </span>
                     <span className="field-hint">{qe.maxMarks} marks</span>

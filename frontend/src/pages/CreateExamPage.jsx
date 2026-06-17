@@ -207,7 +207,7 @@ export default function CreateExamPage() {
               {questions.map((q, idx) => (
                 <div key={idx} className="card" style={{ marginBottom: '1rem', padding: '1.25rem' }}>
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.75rem' }}>
-                    <strong style={{ color: 'var(--primary, #4f46e5)' }}>Question {idx + 1}</strong>
+                    <strong style={{ color: 'var(--primary, #0b83db)' }}>Question {idx + 1}</strong>
                     {questions.length > 1 && (
                       <button
                         type="button"

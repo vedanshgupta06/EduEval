@@ -230,7 +230,7 @@ export default function CreateAssessmentPage() {
 
             {/* Question header */}
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
-              <strong style={{ color: 'var(--primary, #4f46e5)' }}>Question {idx + 1}</strong>
+              <strong style={{ color: 'var(--primary, #0b83db)' }}>Question {idx + 1}</strong>
               <div style={{ display: 'flex', gap: '0.5rem' }}>
                 <button type="button" className="btn-secondary" style={{ padding: '0.2rem 0.6rem', fontSize: '0.8rem' }}
                   onClick={() => moveQuestion(idx, -1)} disabled={idx === 0}>↑</button>

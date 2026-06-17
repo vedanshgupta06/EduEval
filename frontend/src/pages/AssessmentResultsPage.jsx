@@ -118,8 +118,8 @@ export default function AssessmentResultsPage() {
 
   const questionTypeBadge = (type) => {
     const map = {
-      MCQ:          { label: 'MCQ',         color: '#1d4ed8' },
-      MULTI_SELECT: { label: 'Multi-select', color: '#7c3aed' },
+      MCQ:          { label: 'MCQ',         color: '#0b83db' },
+      MULTI_SELECT: { label: 'Multi-select', color: '#075fa1' },
       DESCRIPTIVE:  { label: 'Descriptive',  color: '#0f766e' },
     };
     const s = map[type] || { label: type, color: '#6b7280' };
@@ -301,10 +301,10 @@ export default function AssessmentResultsPage() {
                             return (
                               <div style={{
                                 padding: '0.5rem 0.75rem', borderRadius: '6px',
-                                background: '#eff6ff', border: '1px solid #bfdbfe',
+                                background: 'var(--primary-bg, #e8f5ff)', border: '1px solid var(--primary-soft, #d7ecfb)',
                                 fontSize: '0.82rem', marginBottom: '0.6rem',
                               }}>
-                                <strong style={{ fontSize: '0.75rem', color: '#1d4ed8' }}>AI FEEDBACK</strong>
+                                <strong style={{ fontSize: '0.75rem', color: 'var(--primary-dark, #075fa1)' }}>AI FEEDBACK</strong>
                                 <br />
                                 {fb.summary || JSON.stringify(fb)}
                                 {answer.aiConfidence != null && (

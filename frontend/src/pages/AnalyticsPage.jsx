@@ -9,7 +9,7 @@ import {
   PieChart, Pie, Cell,
 } from 'recharts';
 
-const COLORS = ['#4f46e5', '#16a34a', '#d97706', '#dc2626', '#0891b2'];
+const COLORS = ['#0b83db', '#16a34a', '#d97706', '#dc2626', '#0891b2'];
 
 function getPillClass(pct) {
   if (pct >= 75) return 'deadline-badge active';
@@ -116,8 +116,8 @@ export default function AnalyticsPage() {
       {/* ── Stat cards ── */}
       <div className="analytics-stats-grid">
         <div className="stat-card">
-          <div className="stat-icon" style={{ background: '#ede9fe' }}>
-            <Users size={20} color="#4f46e5" />
+          <div className="stat-icon" style={{ background: 'var(--primary-bg, #e8f5ff)' }}>
+            <Users size={20} color="#0b83db" />
           </div>
           <div>
             <p className="stat-label">Total students</p>
@@ -177,7 +177,7 @@ export default function AnalyticsPage() {
                   name === 'average' ? 'Average marks' : 'Submissions',
                 ]}
               />
-              <Bar dataKey="average" fill="#4f46e5" radius={[4, 4, 0, 0]} name="average" maxBarSize={48} />
+              <Bar dataKey="average" fill="#0b83db" radius={[4, 4, 0, 0]} name="average" maxBarSize={48} />
             </BarChart>
           </ResponsiveContainer>
         </div>

@@ -242,7 +242,7 @@ export default function ExamSubmitPage() {
         {/* ── MULTI-QUESTION MODE ─────────────────────────────────────────── */}
         {exam.isMultiQuestion && (
           <div className="submit-form">
-            <p className="field-hint" style={{ marginBottom: '1.25rem', color: '#4f46e5' }}>
+            <p className="field-hint" style={{ marginBottom: '1.25rem', color: 'var(--primary, #0b83db)' }}>
               Upload one answer sheet containing all answers. Label answers as Q1, Q2, Q3, etc. for best evaluation.
             </p>
 
@@ -276,7 +276,7 @@ export default function ExamSubmitPage() {
             <div style={{ display: 'grid', gap: '0.75rem', marginBottom: '1rem' }}>
               {questions.map((q) => (
                 <div key={q.id} className="card" style={{ padding: '1rem' }}>
-                  <strong style={{ color: 'var(--primary, #4f46e5)' }}>Q{q.questionNo}</strong>
+                  <strong style={{ color: 'var(--primary, #0b83db)' }}>Q{q.questionNo}</strong>
                   <span className="field-hint" style={{ marginLeft: '0.5rem' }}>{q.marks} marks</span>
                   <p style={{ fontSize: '0.9rem', color: '#374151', marginTop: '0.5rem' }}>
                     {q.questionText}
