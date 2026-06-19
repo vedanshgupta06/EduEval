@@ -41,6 +41,12 @@ public class ExamController {
         return ResponseEntity.ok(examService.getExamById(id));
     }
 
+    // GET /api/teacher/exams/{id}
+    @GetMapping("/api/teacher/exams/{id}")
+    public ResponseEntity<ExamResponse> getTeacherExamById(@PathVariable UUID id) {
+        return ResponseEntity.ok(examService.getTeacherExamById(id));
+    }
+
     // PUT /api/teacher/exams/{id}
     @PutMapping("/api/teacher/exams/{id}")
     public ResponseEntity<ExamResponse> updateExam(

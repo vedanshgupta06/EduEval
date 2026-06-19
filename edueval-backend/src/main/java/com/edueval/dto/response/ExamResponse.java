@@ -18,6 +18,7 @@ public class ExamResponse {
     private String teacherName;
     private long submissionCount;
     private LocalDateTime createdAt;
+    private LocalDateTime updatedAt;
     private Boolean isMultiQuestion;
     private List<QuestionResponse> questions;   // null for single-answer exams
 
@@ -26,7 +27,7 @@ public class ExamResponse {
                         String modelAnswerUrl, String modelAnswerText,
                         UUID classroomId, String classroomName, String teacherName,
                         long submissionCount, LocalDateTime createdAt,
-                        Boolean isMultiQuestion) {
+                        LocalDateTime updatedAt, Boolean isMultiQuestion) {
         this.id = id;
         this.title = title;
         this.questionText = questionText;
@@ -39,6 +40,7 @@ public class ExamResponse {
         this.teacherName = teacherName;
         this.submissionCount = submissionCount;
         this.createdAt = createdAt;
+        this.updatedAt = updatedAt;
         this.isMultiQuestion = isMultiQuestion;
         this.questions = null;
     }
@@ -58,6 +60,7 @@ public class ExamResponse {
     public String getTeacherName()         { return teacherName; }
     public long getSubmissionCount()       { return submissionCount; }
     public LocalDateTime getCreatedAt()    { return createdAt; }
+    public LocalDateTime getUpdatedAt()    { return updatedAt; }
     public Boolean getIsMultiQuestion()    { return isMultiQuestion; }
     public List<QuestionResponse> getQuestions() { return questions; }
 
