@@ -11,9 +11,11 @@ export default function LoginPage() {
   const [form, setForm] = useState({ email: '', password: '' });
   const [loading, setLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
+  const [errorMessage, setErrorMessage] = useState('');
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+    setErrorMessage('');
     setLoading(true);
     try {
       const res = await api.post('/api/auth/login', form);
@@ -22,7 +24,9 @@ export default function LoginPage() {
       toast.success(`Welcome back, ${userData.name}!`);
       navigate(userData.role === 'TEACHER' ? '/teacher' : '/student');
     } catch (err) {
-      toast.error(err.response?.data?.message || 'Invalid email or password');
+      const message = err.response?.data?.message || 'Incorrect email or password';
+      setErrorMessage(message);
+      toast.error(message);
     } finally {
       setLoading(false);
     }
@@ -84,6 +88,11 @@ export default function LoginPage() {
                 </button>
               </div>
             </div>
+            {errorMessage && (
+              <div className="form-error" style={{ color: '#dc2626', marginBottom: '1rem' }}>
+                {errorMessage}
+              </div>
+            )}
 
             <div className="auth-options">
               <label>

@@ -21,7 +21,7 @@ import java.util.*;
  * Grades all answers in an AssessmentSubmission.
  *
  * MCQ / MULTI_SELECT → instant, synchronous, no AI.
- * DESCRIPTIVE        → async call to FastAPI /evaluate-text endpoint.
+ * DESCRIPTIVE → async call to FastAPI /evaluate-text endpoint.
  */
 @Slf4j
 @Service
@@ -60,15 +60,16 @@ public class AssessmentGradingService {
                 total += marks;
 
             } else {
-                // DESCRIPTIVE — AI graded asynchronously
+                // DESCRIPTIVE — AI graded by the Python engine
                 hasDescriptive = true;
-                answer.setMarksObtained(0.0); // placeholder until AI responds
-                gradeDescriptiveAsync(answer, q, submission.getId());
+                double marks = gradeDescriptive(answer, q, submission.getId());
+                answer.setMarksObtained(marks);
+                total += marks;
             }
         }
 
         submission.setTotalMarksObtained(total);
-        submission.setStatus(hasDescriptive ? "PARTIALLY_GRADED" : "GRADED");
+        submission.setStatus("GRADED");
         return submission;
     }
 
@@ -103,10 +104,10 @@ public class AssessmentGradingService {
 
             // PROPORTIONAL: credit for each correct selection, penalise wrong ones
             long correctHits = chosen.stream().filter(correct::contains).count();
-            long wrongHits   = chosen.stream().filter(c -> !correct.contains(c)).count();
+            long wrongHits = chosen.stream().filter(c -> !correct.contains(c)).count();
 
             double score = (double) correctHits / correct.size()
-                         - (double) wrongHits / correct.size();
+                    - (double) wrongHits / correct.size();
             score = Math.max(0.0, score);
             return Math.round(score * question.getMarks() * 100.0) / 100.0;
 
@@ -116,21 +117,20 @@ public class AssessmentGradingService {
         return 0.0;
     }
 
-    // ── Descriptive grading (async AI call) ──────────────────────────────────
+    // ── Descriptive grading via AI text endpoint ────────────────────────────
 
-    @Async
-    public void gradeDescriptiveAsync(AssessmentAnswer answer,
-                                      AssessmentQuestion question,
-                                      UUID submissionId) {
+    private double gradeDescriptive(AssessmentAnswer answer,
+            AssessmentQuestion question,
+            UUID submissionId) {
         log.info("Sending descriptive answer {} to AI engine", answer.getId());
 
         Map<String, Object> payload = new HashMap<>();
-        payload.put("answer_text",        answer.getAnswerValue() != null ? answer.getAnswerValue() : "");
-        payload.put("model_answer_text",  question.getModelAnswerText() != null ? question.getModelAnswerText() : "");
-        payload.put("max_marks",          question.getMarks());
-        payload.put("question_text",      question.getQuestionText());
-        payload.put("answer_id",          answer.getId().toString());
-        payload.put("submission_id",      submissionId.toString());
+        payload.put("answer_text", answer.getAnswerValue() != null ? answer.getAnswerValue() : "");
+        payload.put("model_answer_text", question.getModelAnswerText() != null ? question.getModelAnswerText() : "");
+        payload.put("max_marks", question.getMarks());
+        payload.put("question_text", question.getQuestionText());
+        payload.put("answer_id", answer.getId().toString());
+        payload.put("submission_id", submissionId.toString());
 
         try {
             HttpHeaders headers = new HttpHeaders();
@@ -140,23 +140,45 @@ public class AssessmentGradingService {
             String result = restTemplate.postForObject(
                     aiBaseUrl + "/evaluate-text",
                     request,
-                    String.class
-            );
+                    String.class);
             log.info("AI text evaluation complete for answer {}", answer.getId());
-            // Result is handled by AssessmentAiResultHandler (see below)
+            if (result != null && !result.isBlank()) {
+                Map<?, ?> response = objectMapper.readValue(result, Map.class);
+                double marks = toDouble(response.get("ai_marks"));
+                answer.setMarksObtained(marks);
+                answer.setAiFeedbackJson(result);
+                answer.setAiConfidence(toDouble(response.get("ai_confidence")));
+                return marks;
+            }
         } catch (Exception e) {
             log.error("AI text evaluation failed for answer {}: {}", answer.getId(), e.getMessage());
-            // Fallback: mark as 0 with error note
-            answer.setMarksObtained(0.0);
-            answer.setAiFeedbackJson("{\"error\": \"AI evaluation failed. Please review manually.\"}");
-            answer.setAiConfidence(0.0);
+        }
+
+        // Fallback: mark as 0 with error note
+        answer.setMarksObtained(0.0);
+        answer.setAiFeedbackJson("{\"error\": \"AI evaluation failed. Please review manually.\"}");
+        answer.setAiConfidence(0.0);
+        return 0.0;
+    }
+
+    private double toDouble(Object val) {
+        if (val == null)
+            return 0.0;
+        if (val instanceof Number number)
+            return number.doubleValue();
+        try {
+            return Double.parseDouble(val.toString());
+        } catch (NumberFormatException e) {
+            return 0.0;
         }
     }
 
     // ── Helpers ───────────────────────────────────────────────────────────────
 
     private List<Integer> parseIntList(String json) throws Exception {
-        if (json == null || json.isBlank()) return List.of();
-        return objectMapper.readValue(json, new TypeReference<List<Integer>>() {});
+        if (json == null || json.isBlank())
+            return List.of();
+        return objectMapper.readValue(json, new TypeReference<List<Integer>>() {
+        });
     }
 }
