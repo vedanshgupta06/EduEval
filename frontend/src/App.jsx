@@ -18,6 +18,7 @@ import AnalyticsPage from './pages/AnalyticsPage';
 import CreateAssessmentPage  from './pages/CreateAssessmentPage';
 import TakeAssessmentPage    from './pages/TakeAssessmentPage';
 import AssessmentResultsPage from './pages/AssessmentResultsPage';
+import ExamAnalyticsPage from './pages/ExamAnalyticsPage';
 
 function AppLayout() {
   const location = useLocation();
@@ -64,6 +65,7 @@ function AppLayout() {
             path="/teacher/assessment/:assessmentId/results"
             element={<ProtectedRoute role="TEACHER"><AssessmentResultsPage /></ProtectedRoute>}
           />
+          <Route path="/teacher/exams/:examId/analytics" element={<ExamAnalyticsPage />} />
           <Route
             path="/student/assessment/:assessmentId/take"
             element={<ProtectedRoute role="STUDENT"><TakeAssessmentPage /></ProtectedRoute>}
