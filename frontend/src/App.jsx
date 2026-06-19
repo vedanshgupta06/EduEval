@@ -15,6 +15,7 @@ import SubmissionReviewPage from './pages/SubmissionReviewPage';
 import ExamSubmitPage from './pages/ExamSubmitPage';
 import ResultPage from './pages/ResultPage';
 import AnalyticsPage from './pages/AnalyticsPage';
+import ExamQuestionsPage from './pages/ExamQuestionsPage';
 import CreateAssessmentPage  from './pages/CreateAssessmentPage';
 import TakeAssessmentPage    from './pages/TakeAssessmentPage';
 import AssessmentResultsPage from './pages/AssessmentResultsPage';
@@ -49,6 +50,9 @@ function AppLayout() {
           } />
           <Route path="/teacher/exam/:examId/review-queue" element={
             <ProtectedRoute role="TEACHER"><ReviewQueuePage /></ProtectedRoute>
+          } />
+          <Route path="/teacher/exam/:examId/questions" element={
+            <ProtectedRoute role="TEACHER"><ExamQuestionsPage /></ProtectedRoute>
           } />
           <Route path="/teacher/review/:submissionId" element={
             <ProtectedRoute role="TEACHER"><SubmissionReviewPage /></ProtectedRoute>

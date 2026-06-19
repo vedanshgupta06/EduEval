@@ -1,10 +1,11 @@
 package com.edueval.controller;
 
+import com.edueval.dto.request.UpdateExamQuestionRequest;
 import com.edueval.dto.response.QuestionResponse;
 import com.edueval.service.ExamQuestionService;
+import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
-import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
@@ -30,5 +31,12 @@ public class ExamQuestionController {
                 .map(examQuestionService::toResponse)
                 .toList();
         return ResponseEntity.ok(result);
+    }
+
+    @PutMapping("/teacher/exam-questions/{questionId}")
+    public ResponseEntity<QuestionResponse> updateQuestion(
+            @PathVariable UUID questionId,
+            @Valid @RequestBody UpdateExamQuestionRequest request) {
+        return ResponseEntity.ok(examQuestionService.updateQuestion(questionId, request));
     }
 }
