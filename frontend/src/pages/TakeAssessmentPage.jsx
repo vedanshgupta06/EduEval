@@ -132,7 +132,7 @@ export default function TakeAssessmentPage() {
 
       const { data } = await submitAssessment(assessmentId, payload);
       toast.success('Assessment submitted!');
-      navigate(`/student/assessment/${assessmentId}/result`, { state: { submission: data } });
+      navigate(`/student/result/${data.id}`, { state: { submission: data } });
     } catch (err) {
       toast.error(err.response?.data?.message || 'Submission failed');
       setSubmitting(false);
@@ -175,7 +175,7 @@ export default function TakeAssessmentPage() {
           <div style={{ display: 'flex', justifyContent: 'center', gap: '2rem', marginBottom: '1.5rem' }}>
             <div>
               <div style={{ fontSize: '2rem', fontWeight: 700 }}>
-                {mySubmission.totalMarksObtained ?? '—'}
+                {mySubmission.totalMarksObtained != null ? mySubmission.totalMarksObtained.toFixed(2) : '—'}
               </div>
               <div style={{ fontSize: '0.85rem', color: 'var(--text-muted, #888)' }}>
                 / {mySubmission.totalMarks} marks

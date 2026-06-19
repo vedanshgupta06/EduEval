@@ -182,7 +182,7 @@ export default function ResultPage() {
           <div style={{ flex: 1 }}>
             <p className="page-subtitle" style={{ marginBottom: '0.15rem' }}>Final score</p>
             <p style={{ fontSize: '2rem', fontWeight: 700, lineHeight: 1, color: 'var(--gray-800)' }}>
-              {mainScore.toFixed(1)}
+              {mainScore.toFixed(2)}
               <span style={{ fontSize: '1.1rem', fontWeight: 400, color: 'var(--gray-400)', marginLeft: 4 }}>
                 / {totalMax}
               </span>

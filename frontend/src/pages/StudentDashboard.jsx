@@ -136,7 +136,7 @@ export default function StudentDashboard() {
                     <td>{p.classroomName}</td>
                     <td>
                       {p.marksObtained != null
-                        ? `${p.marksObtained.toFixed(1)} / ${p.totalMarks}`
+                        ? `${p.marksObtained.toFixed(2)} / ${p.totalMarks}`
                         : '—'}
                     </td>
                     <td>

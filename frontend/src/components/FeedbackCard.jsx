@@ -42,7 +42,7 @@ export default function FeedbackCard({ feedbackJson, aiMarks, teacherMarks, tota
       {/* Marks summary */}
       <div className="feedback-marks">
         <div className="marks-final">
-          <span className="marks-number">{finalMarks?.toFixed(1)}</span>
+          <span className="marks-number">{finalMarks?.toFixed(2)}</span>
           <span className="marks-total">/ {totalMarks}</span>
         </div>
         <div className="marks-meta">

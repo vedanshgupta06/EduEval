@@ -441,7 +441,7 @@ export default function SubmissionReviewPage() {
                   <span style={{ color: 'var(--gray-600)' }}>
                     AI marks:{' '}
                     <strong style={{ color: 'var(--gray-800)' }}>
-                      {notEvaluated ? '—' : (qe.aiMarks?.toFixed(1) ?? '—')}
+                      {notEvaluated ? '—' : (qe.aiMarks?.toFixed(2) ?? '—')}
                     </strong>
                   </span>
                   <span style={{ color: 'var(--gray-600)' }}>
