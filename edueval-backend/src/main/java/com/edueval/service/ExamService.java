@@ -85,6 +85,7 @@ public class ExamService {
         if (request.title()           != null) exam.setTitle(request.title());
         if (request.totalMarks()      != null) exam.setTotalMarks(request.totalMarks());
         if (request.deadline()        != null) exam.setDeadline(request.deadline());
+        if (request.questionText()    != null) exam.setQuestionText(request.questionText());
         if (request.modelAnswerUrl()  != null) exam.setModelAnswerUrl(request.modelAnswerUrl());
         if (request.modelAnswerText() != null) exam.setModelAnswerText(request.modelAnswerText());
 
@@ -109,8 +110,12 @@ public class ExamService {
     @Transactional(readOnly = true)
     public List<ExamResponse> getExamsForClassroom(UUID classroomId) {
         Classroom classroom = findClassroom(classroomId);
+        User user = currentUser();
+        boolean includeTeacherDetails = classroom.getTeacher().getId().equals(user.getId());
         return examRepository.findByClassroomOrderByDeadlineAsc(classroom)
-                .stream().map(this::toResponse).collect(Collectors.toList());
+                .stream()
+                .map(exam -> toResponseForList(exam, includeTeacherDetails))
+                .collect(Collectors.toList());
     }
 
     @Transactional(readOnly = true)
@@ -124,6 +129,24 @@ public class ExamService {
                     .getQuestionsForExam(examId)
                     .stream()
                     .map(examQuestionService::toResponse)
+                    .toList();
+            response.setQuestions(questions);
+        }
+
+        return response;
+    }
+
+    @Transactional(readOnly = true)
+    public ExamResponse getTeacherExamById(UUID examId) {
+        Exam exam = findById(examId);
+        requireClassroomOwnership(exam.getClassroom());
+        ExamResponse response = toResponse(exam);
+
+        if (Boolean.TRUE.equals(exam.getIsMultiQuestion())) {
+            List<QuestionResponse> questions = examQuestionService
+                    .getQuestionsForExam(examId)
+                    .stream()
+                    .map(examQuestionService::toTeacherResponse)
                     .toList();
             response.setQuestions(questions);
         }
@@ -171,7 +194,21 @@ public class ExamService {
                 e.getClassroom().getTeacher().getName(),
                 submissionCount,
                 e.getCreatedAt(),
+                e.getUpdatedAt(),
                 e.getIsMultiQuestion()
         );
+    }
+
+    private ExamResponse toResponseForList(Exam e, boolean includeTeacherDetails) {
+        ExamResponse response = toResponse(e);
+        if (includeTeacherDetails && Boolean.TRUE.equals(e.getIsMultiQuestion())) {
+            List<QuestionResponse> questions = examQuestionService
+                    .getQuestionsForExam(e.getId())
+                    .stream()
+                    .map(examQuestionService::toTeacherResponse)
+                    .toList();
+            response.setQuestions(questions);
+        }
+        return response;
     }
 }

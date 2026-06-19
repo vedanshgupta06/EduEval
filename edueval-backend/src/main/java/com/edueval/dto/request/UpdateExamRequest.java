@@ -16,6 +16,7 @@ public record UpdateExamRequest(
         @Future(message = "Deadline must be in the future")
         LocalDateTime deadline,
 
+        String questionText,
         String modelAnswerUrl,
         String modelAnswerText
 

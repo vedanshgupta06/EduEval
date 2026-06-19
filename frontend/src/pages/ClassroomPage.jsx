@@ -11,6 +11,7 @@ export default function ClassroomPage() {
   const { user } = useAuth();
   const navigate = useNavigate();
   const isTeacher = user?.role === 'TEACHER';
+  const showInlineTeacherDetails = false;
 
   const [classroom, setClassroom] = useState(null);
   const [exams, setExams] = useState([]);
@@ -48,6 +49,19 @@ export default function ClassroomPage() {
     if (Number.isNaN(date.getTime())) return '';
     const offsetMs = date.getTimezoneOffset() * 60 * 1000;
     return new Date(date.getTime() - offsetMs).toISOString().slice(0, 16);
+  };
+
+  const formatDateTime = (value) => {
+    if (!value) return 'Not available';
+    const date = new Date(value);
+    if (Number.isNaN(date.getTime())) return 'Not available';
+    return date.toLocaleDateString('en-IN', {
+      day: 'numeric',
+      month: 'short',
+      year: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit',
+    });
   };
 
   const handleExamClick = (exam) => {
@@ -221,9 +235,57 @@ export default function ClassroomPage() {
                         })}
                       </span>
                       {isTeacher && (
+                        <span>
+                          <Clock size={13} />
+                          Created: {formatDateTime(exam.createdAt)}
+                        </span>
+                      )}
+                      {isTeacher && (
                         <span><FileText size={13} /> {exam.submissionCount} submissions</span>
                       )}
                     </div>
+
+                    {showInlineTeacherDetails && isTeacher && (
+                      <div className="exam-teacher-details">
+                        {exam.isMultiQuestion ? (
+                          <>
+                            <div className="exam-detail-title">Questions and model answers</div>
+                            {(exam.questions || []).length > 0 ? (
+                              <div className="exam-question-list">
+                                {exam.questions.map((question) => (
+                                  <div key={question.id || question.questionNo} className="exam-question-detail">
+                                    <div className="exam-question-heading">
+                                      Q{question.questionNo} · {question.marks} marks
+                                    </div>
+                                    <div className="exam-detail-block">
+                                      <span>Question</span>
+                                      <p>{question.questionText || 'No question text saved.'}</p>
+                                    </div>
+                                    <div className="exam-detail-block">
+                                      <span>Model answer</span>
+                                      <p>{question.modelAnswerText || 'No model answer saved.'}</p>
+                                    </div>
+                                  </div>
+                                ))}
+                              </div>
+                            ) : (
+                              <p className="field-hint">No question details available for this exam.</p>
+                            )}
+                          </>
+                        ) : (
+                          <>
+                            <div className="exam-detail-block">
+                              <span>Question</span>
+                              <p>{exam.questionText || 'No question text saved.'}</p>
+                            </div>
+                            <div className="exam-detail-block">
+                              <span>Model answer</span>
+                              <p>{exam.modelAnswerText || 'No model answer saved.'}</p>
+                            </div>
+                          </>
+                        )}
+                      </div>
+                    )}
 
                     {isTeacher && editingDeadlineId === exam.id && (
                       <div className="deadline-edit-panel">
@@ -270,6 +332,15 @@ export default function ClassroomPage() {
                           Review Queue
                         </button>
                       )}
+                      {isTeacher && (
+                        <button
+                          className="btn-secondary"
+                          onClick={() => navigate(`/teacher/exam/${exam.id}/questions`)}
+                        >
+                          <FileText size={14} />
+                          Questions
+                        </button>
+                      )}
                     </div>
                   </div>
                 );
@@ -295,6 +366,7 @@ export default function ClassroomPage() {
             <div className="card-grid">
               {assessments.map((assessment) => {
                 const past = isPastDeadline(assessment.deadline);
+                const questionCount = assessment.questions?.length ?? 0;
                 return (
                   <div key={assessment.id} className={`exam-card ${past ? 'past' : ''}`}>
                     <div className="exam-card-header">
@@ -320,7 +392,7 @@ export default function ClassroomPage() {
                     <div className="exam-meta">
                       <span>Total: <strong>{assessment.totalMarks} marks</strong></span>
                       <span>
-                        <FileText size={13} /> {assessment.questions.length} question{assessment.questions.length !== 1 ? 's' : ''}
+                        <FileText size={13} /> {questionCount} question{questionCount !== 1 ? 's' : ''}
                       </span>
                       {assessment.durationMinutes && (
                         <span><Clock size={13} /> {assessment.durationMinutes} min</span>
