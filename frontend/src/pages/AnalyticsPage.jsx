@@ -246,7 +246,10 @@ export default function AnalyticsPage() {
       {/* ── Exam breakdown table ── */}
       {examBreakdown.length > 0 && (
         <div className="card">
-          <h3 style={{ marginBottom: '1rem' }}>Exam breakdown</h3>
+          <h3 style={{ marginBottom: '0.25rem' }}>Exam breakdown</h3>
+          <p className="page-subtitle" style={{ marginBottom: '1rem' }}>
+            Click a row to see that exam's detailed analytics
+          </p>
           <table className="results-table">
             <thead>
               <tr>
@@ -265,7 +268,11 @@ export default function AnalyticsPage() {
                   ? Math.round((e.averageMarks / e.totalMarks) * 100)
                   : null;
                 return (
-                  <tr key={e.examId}>
+                  <tr
+                    key={e.examId}
+                    onClick={() => navigate(`/teacher/exams/${e.examId}/analytics`)}
+                    style={{ cursor: 'pointer' }}
+                  >
                     <td><strong>{e.examTitle}</strong></td>
                     <td>{e.totalMarks}</td>
                     <td>
