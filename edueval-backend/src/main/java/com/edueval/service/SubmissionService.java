@@ -3,6 +3,7 @@ package com.edueval.service;
 import com.edueval.dto.response.SubmissionResponse;
 import com.edueval.entity.Evaluation;
 import com.edueval.entity.Exam;
+import com.edueval.entity.QuestionEvaluation;
 import com.edueval.entity.Submission;
 import com.edueval.entity.User;
 import com.edueval.enums.SubmissionStatus;
@@ -10,6 +11,7 @@ import com.edueval.exception.ResourceNotFoundException;
 import com.edueval.exception.UnauthorizedActionException;
 import com.edueval.repository.ClassroomMemberRepository;
 import com.edueval.repository.EvaluationRepository;
+import com.edueval.repository.QuestionEvaluationRepository;
 import com.edueval.repository.SubmissionRepository;
 import com.edueval.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
@@ -31,6 +33,7 @@ public class SubmissionService {
 
     private final SubmissionRepository submissionRepository;
     private final EvaluationRepository evaluationRepository;
+    private final QuestionEvaluationRepository questionEvaluationRepository;
     private final ClassroomMemberRepository classroomMemberRepository;
     private final ExamService examService;
     private final FileStorageService fileStorageService;
@@ -161,8 +164,47 @@ public class SubmissionService {
                 .orElseThrow(() -> new ResourceNotFoundException("Authenticated user not found"));
     }
 
+    // ── Marks aggregation ───────────────────────────────────────────────────
+    // Single-answer exams store their one Evaluation row in the legacy
+    // `evaluations` table. Multi-question exams never populate that table —
+    // each question's score lives in `question_evaluations` instead, so we
+    // sum those per submission. Returns {aiMarksTotal, finalMarksTotal}, with
+    // both null until at least one question has been AI-evaluated.
+    private Double[] computeMultiQuestionMarks(UUID submissionId) {
+        List<QuestionEvaluation> evals =
+                questionEvaluationRepository.findByQuestionSubmissionSubmissionId(submissionId);
+
+        boolean anyEvaluated = evals.stream().anyMatch(qe -> qe.getAiMarks() != null);
+        if (evals.isEmpty() || !anyEvaluated) {
+            return new Double[]{null, null};
+        }
+
+        double aiTotal = evals.stream()
+                .mapToDouble(qe -> qe.getAiMarks() != null ? qe.getAiMarks() : 0.0)
+                .sum();
+
+        double finalTotal = evals.stream()
+                .mapToDouble(qe -> qe.getTeacherMarks() != null
+                        ? qe.getTeacherMarks()
+                        : (qe.getAiMarks() != null ? qe.getAiMarks() : 0.0))
+                .sum();
+
+        return new Double[]{aiTotal, finalTotal};
+    }
+
     private SubmissionResponse toResponse(Submission submission) {
-        Evaluation evaluation = evaluationRepository.findBySubmission(submission).orElse(null);
+        Double aiMarks;
+        Double finalMarks;
+
+        if (Boolean.TRUE.equals(submission.getExam().getIsMultiQuestion())) {
+            Double[] marks = computeMultiQuestionMarks(submission.getId());
+            aiMarks = marks[0];
+            finalMarks = marks[1];
+        } else {
+            Evaluation evaluation = evaluationRepository.findBySubmission(submission).orElse(null);
+            aiMarks = evaluation != null ? evaluation.getAiMarks() : null;
+            finalMarks = evaluation != null ? evaluation.getFinalMarks() : null;
+        }
 
         return new SubmissionResponse(
                 submission.getId(),
@@ -174,8 +216,8 @@ public class SubmissionService {
                 submission.getExam().getTotalMarks(),
                 submission.getFileUrl(),
                 submission.getStatus(),
-                evaluation != null ? evaluation.getAiMarks() : null,
-                evaluation != null ? evaluation.getFinalMarks() : null,
+                aiMarks,
+                finalMarks,
                 submission.getSubmittedAt()
         );
     }
