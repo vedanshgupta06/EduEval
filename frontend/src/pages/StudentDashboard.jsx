@@ -142,7 +142,7 @@ export default function StudentDashboard() {
                     <td>
                       <span className="status-badge">
                         {statusIcon(p.reviewed ? 'REVIEWED' : 'AI_EVALUATED')}
-                        {p.reviewed ? 'Reviewed' : 'Pending review'}
+                        {p.reviewed ? 'Reviewed' : 'AI_EVALUATED'}
                       </span>
                     </td>
                     <td>
