@@ -4,6 +4,28 @@ import api, { getApiErrorMessage } from '../api/axios';
 import toast from 'react-hot-toast';
 import { Upload, FileText, Clock, CheckCircle } from 'lucide-react';
 
+// Maps backend status -> short, student-friendly label.
+const STATUS_LABELS = {
+  PENDING: 'Submitted — awaiting AI evaluation',
+  PROCESSING: 'AI evaluation in progress',
+  AI_EVALUATED: 'AI evaluated — awaiting teacher review',
+  REVIEWED: 'Reviewed by teacher',
+  RESUBMIT: 'Resubmission requested by teacher',
+};
+
+// For multi-question exams, the parent Submission row is created the moment the
+// student opens the page (so uploads have an ID to attach to) — its status stays
+// PENDING until they actually upload + hit "Submit All & Evaluate". So a PENDING
+// multi-question submission is NOT a real submission yet, just a placeholder.
+// For single-answer exams the row only ever gets created together with the file,
+// so PENDING there does mean "really submitted, just not processed yet".
+const isRealSubmission = (sub, isMultiQuestion) => {
+  if (!sub) return false;
+  if (sub.status === 'RESUBMIT') return false;
+  if (isMultiQuestion && sub.status === 'PENDING') return false;
+  return true;
+};
+
 export default function ExamSubmitPage() {
   const { examId } = useParams();
   const navigate = useNavigate();
@@ -11,6 +33,7 @@ export default function ExamSubmitPage() {
   const [exam, setExam] = useState(null);
   const [questions, setQuestions] = useState([]);
   const [submissionId, setSubmissionId] = useState(null);
+  const [existingSubmission, setExistingSubmission] = useState(null);
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [loadError, setLoadError] = useState('');
@@ -39,6 +62,17 @@ export default function ExamSubmitPage() {
       try {
         const { data: examData } = await api.get(`/api/exams/${examId}`);
         setExam(examData);
+
+        // Check whether this student has already submitted this exam before
+        // showing (or re-creating) the upload form.
+        const { data: mySubmissions } = await api.get('/api/student/submissions');
+        const existing = mySubmissions.find((s) => s.examId === examId);
+
+        if (isRealSubmission(existing, examData.isMultiQuestion)) {
+          setExistingSubmission(existing);
+          setLoading(false);
+          return;
+        }
 
         if (examData.isMultiQuestion) {
           const { data: qData } = await api.get(`/api/exams/${examId}/questions`);
@@ -145,6 +179,47 @@ export default function ExamSubmitPage() {
   // ── Render ────────────────────────────────────────────────────────────────
   if (loading) return <div className="loading">Loading exam...</div>;
   if (!exam)   return <div className="error">{loadError || 'Exam not found'}</div>;
+
+  // Already submitted — show a confirmation instead of the upload form so
+  // revisiting the page doesn't look like an invitation to resubmit.
+  if (existingSubmission) {
+    return (
+      <div className="page">
+        <div className="page-header">
+          <div>
+            <h2>{exam.title}</h2>
+            <p className="page-subtitle">{exam.classroomName} · {exam.totalMarks} marks</p>
+          </div>
+        </div>
+
+        <div className="card form-card" style={{ textAlign: 'center', padding: '2.5rem 1.5rem' }}>
+          <CheckCircle size={48} color="#16a34a" style={{ marginBottom: '1rem' }} />
+          <h3 style={{ marginBottom: '0.5rem' }}>You've already submitted this exam</h3>
+          <p className="field-hint" style={{ marginBottom: '1.5rem' }}>
+            Submitted on{' '}
+            {new Date(existingSubmission.submittedAt).toLocaleDateString('en-IN', {
+              day: 'numeric', month: 'long', year: 'numeric',
+              hour: '2-digit', minute: '2-digit'
+            })}
+            {' · '}
+            {STATUS_LABELS[existingSubmission.status] || existingSubmission.status}
+          </p>
+          <div className="form-actions" style={{ justifyContent: 'center' }}>
+            <button type="button" className="btn-secondary" onClick={() => navigate(-1)}>
+              Back
+            </button>
+            <button
+              type="button"
+              className="btn-primary"
+              onClick={() => navigate(`/student/result/${existingSubmission.id}`)}
+            >
+              View Result
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   const uploadedCount = multiUploadStatus === 'done' ? questions.length : 0;
 
