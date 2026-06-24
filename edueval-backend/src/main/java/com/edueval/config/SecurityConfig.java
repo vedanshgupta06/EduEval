@@ -24,44 +24,43 @@ import java.util.List;
 
 @Configuration
 @EnableWebSecurity
-@EnableMethodSecurity           // allows @PreAuthorize on controller methods
+@EnableMethodSecurity
 @RequiredArgsConstructor
 public class SecurityConfig {
 
     private final JwtAuthenticationFilter jwtAuthFilter;
     private final CustomUserDetailsService userDetailsService;
+    private final OAuth2LoginSuccessHandler oAuth2LoginSuccessHandler; // new
 
     @Bean
     public SecurityFilterChain filterChain(HttpSecurity http) throws Exception {
         http
-                // Disable CSRF — we use JWT, not sessions
                 .csrf(AbstractHttpConfigurer::disable)
-
-                // Enable CORS — React frontend on a different port needs this
                 .cors(cors -> cors.configurationSource(corsConfigurationSource()))
 
-                // Route-level authorization
                 .authorizeHttpRequests(auth -> auth
-                        // Public routes — no token needed
                         .requestMatchers("/api/health").permitAll()
                         .requestMatchers("/api/auth/**").permitAll()
                         .requestMatchers("/api/files/**").permitAll()
+                        .requestMatchers("/login/**", "/oauth2/**").permitAll() // new
 
-                        // Role-restricted routes
                         .requestMatchers("/api/teacher/**").hasRole("TEACHER")
                         .requestMatchers("/api/student/**").hasRole("STUDENT")
                         .requestMatchers("/api/admin/**").hasRole("ADMIN")
 
-                        // Everything else requires authentication
                         .anyRequest().authenticated()
                 )
 
-                // Stateless — no sessions, JWT only
+                // OAuth2 needs a brief session for the redirect dance — IF_REQUIRED handles that
+                // without breaking your stateless JWT API calls
                 .sessionManagement(session ->
-                        session.sessionCreationPolicy(SessionCreationPolicy.STATELESS)
+                        session.sessionCreationPolicy(SessionCreationPolicy.IF_REQUIRED)
                 )
 
-                // Wire in our auth provider and JWT filter
+                .oauth2Login(oauth2 -> oauth2
+                        .successHandler(oAuth2LoginSuccessHandler) // new
+                )
+
                 .authenticationProvider(authenticationProvider())
                 .addFilterBefore(jwtAuthFilter, UsernamePasswordAuthenticationFilter.class);
 
@@ -88,13 +87,12 @@ public class SecurityConfig {
         return new BCryptPasswordEncoder();
     }
 
-    // Allow React dev server (port 3000) and any localhost during development
     @Bean
     public CorsConfigurationSource corsConfigurationSource() {
         CorsConfiguration config = new CorsConfiguration();
         config.setAllowedOrigins(List.of(
-                "http://localhost:3000",   // React dev server
-                "http://localhost:5173"    // Vite dev server
+                "http://localhost:3000",
+                "http://localhost:5173"
         ));
         config.setAllowedMethods(List.of("GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"));
         config.setAllowedHeaders(List.of("*"));

@@ -25,7 +25,7 @@ public class CustomUserDetailsService implements UserDetailsService {
         // Spring Security needs the role prefixed with ROLE_
         return new org.springframework.security.core.userdetails.User(
                 user.getEmail(),
-                user.getPasswordHash(),
+                user.getPasswordHash() != null ? user.getPasswordHash() : "", 
                 List.of(new SimpleGrantedAuthority("ROLE_" + user.getRole().name()))
         );
     }
