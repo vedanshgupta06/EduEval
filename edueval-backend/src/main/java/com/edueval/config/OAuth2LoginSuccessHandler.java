@@ -43,7 +43,7 @@ public class OAuth2LoginSuccessHandler implements AuthenticationSuccessHandler {
         String jwt = jwtUtil.generateToken(user.getEmail());
 
         // Send token to React via query param
-        String redirectUrl = "http://localhost:5173/oauth2/callback?token=" + jwt;
+       String redirectUrl = "https://edu-eval-rho.vercel.app/oauth2/callback?token=" + jwt;
         response.sendRedirect(redirectUrl);
     }
 }
