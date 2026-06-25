@@ -15,7 +15,36 @@ import requests
 from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel, Field
 
+import tempfile
+import urllib.parse
 
+
+def is_http_url(value: str) -> bool:
+    return value.startswith("http://") or value.startswith("https://")
+
+def download_to_temp(url: str) -> Path:
+    """Downloads a URL to a temp file and returns its Path."""
+    try:
+        response = requests.get(url, timeout=30)
+        response.raise_for_status()
+    except requests.RequestException as exc:
+        raise HTTPException(status_code=502, detail=f"Failed to download file: {exc}")
+
+    # Guess extension from URL or Content-Type
+    content_type = response.headers.get("Content-Type", "")
+    if "pdf" in content_type:
+        suffix = ".pdf"
+    elif "png" in content_type:
+        suffix = ".png"
+    elif "webp" in content_type:
+        suffix = ".webp"
+    else:
+        suffix = ".jpg"  # default for image/jpeg and fallback
+
+    tmp = tempfile.NamedTemporaryFile(delete=False, suffix=suffix)
+    tmp.write(response.content)
+    tmp.close()
+    return Path(tmp.name)
 APP_DIR = Path(__file__).resolve().parent
 PROJECT_ROOT = APP_DIR.parent
 
@@ -67,7 +96,9 @@ SCORING_WEIGHTS = {
     "sentence_score": 0.15,
     "length_score": 0.10,
 }
-
+def round_to_half(value: float) -> float:
+    """Rounds to nearest 0.5 — e.g. 1.3 → 1.5, 1.2 → 1.0, 2.8 → 3.0"""
+    return round(value * 2) / 2
 STOP_WORDS = {
     "a", "an", "and", "are", "as", "at", "be", "been", "by", "for", "from",
     "has", "have", "in", "is", "it", "its", "of", "on", "or", "that", "the",
@@ -161,7 +192,7 @@ def evaluate(payload: EvaluationRequest) -> dict[str, Any]:
     scores = feedback["score_breakdown"]
 
     weighted_score = sum(scores[key] * weight for key, weight in SCORING_WEIGHTS.items())
-    ai_marks = round(max(0.0, min(payload.total_marks, weighted_score * payload.total_marks)), 2)
+    ai_marks = round_to_half(max(0.0, min(payload.total_marks, weighted_score * payload.total_marks)), 2)
 
     confidence = confidence_from_feedback(feedback, weighted_score)
     feedback["scoring_weights"] = SCORING_WEIGHTS
@@ -193,6 +224,7 @@ def evaluate(payload: EvaluationRequest) -> dict[str, Any]:
 @app.post("/evaluate-question")
 def evaluate_question(payload: QuestionEvaluationRequest) -> dict[str, Any]:
     logger.info("POST /evaluate-question received for question %s", payload.question_no)
+
     model_text = normalize_space(payload.model_answer)
     if not model_text:
         raise HTTPException(
@@ -201,66 +233,114 @@ def evaluate_question(payload: QuestionEvaluationRequest) -> dict[str, Any]:
         )
 
     file_path = safe_file_path(payload.file_path)
-    student_text = extract_text_from_file(file_path)
-    scoped_student_text = extract_answer_for_question(student_text, payload.question_no)
-    if scoped_student_text:
-        scoped_student_text = correct_ocr_text(scoped_student_text, model_text)
-    if not student_text or not scoped_student_text:
-        logger.warning("No readable text extracted for question %s", payload.question_no)
-        feedback = unreadable_feedback_with_reason(
-            payload.max_marks,
-            (
-                "No answer was detected below this question number. "
-                "Write each answer under a clear label such as Q1, Q2, Q3."
-            )
-            if student_text
-            else "Could not extract readable OCR text from the submitted answer sheet.",
+    is_temp = is_http_url(payload.file_path)
+
+    try:
+        student_text = extract_text_from_file(file_path)
+        scoped_student_text = extract_answer_for_question(
+            student_text,
+            payload.question_no,
         )
+
+        if scoped_student_text:
+            scoped_student_text = correct_ocr_text(
+                scoped_student_text,
+                model_text,
+            )
+
+        if not student_text or not scoped_student_text:
+            logger.warning(
+                "No readable text extracted for question %s",
+                payload.question_no,
+            )
+
+            feedback = unreadable_feedback_with_reason(
+                payload.max_marks,
+                (
+                    "No answer was detected below this question number. "
+                    "Write each answer under a clear label such as Q1, Q2, Q3."
+                )
+                if student_text
+                else "Could not extract readable OCR text from the submitted answer sheet.",
+            )
+
+            feedback["extracted_full_answer_sheet"] = student_text[:2000]
+
+            if payload.question_no is not None:
+                feedback["question_no"] = payload.question_no
+
+            return {
+                "marks": 0.0,
+                "confidence": 0.1,
+                "feedback": feedback,
+            }
+
+        feedback = build_feedback(model_text, scoped_student_text)
+
         feedback["extracted_full_answer_sheet"] = student_text[:2000]
+
         if payload.question_no is not None:
             feedback["question_no"] = payload.question_no
+
+        scores = feedback["score_breakdown"]
+
+        weighted_score = sum(
+            scores[key] * weight
+            for key, weight in SCORING_WEIGHTS.items()
+        )
+
+        marks = round(
+            max(
+                0.0,
+                min(payload.max_marks, weighted_score * payload.max_marks),
+            ),
+            2,
+        )
+
+        confidence = confidence_from_feedback(
+            feedback,
+            weighted_score,
+        )
+
+        feedback["scoring_weights"] = SCORING_WEIGHTS
+
+        feedback["mark_calculation"] = {
+            "weighted_score": round(weighted_score, 3),
+            "total_marks": payload.max_marks,
+            "awarded_marks": marks,
+            "formula": (
+                "marks = max_marks * "
+                "(keyword_score*0.40 + semantic_score*0.35 + "
+                "sentence_score*0.15 + length_score*0.10)"
+            ),
+        }
+
+        logger.info(
+            "Completed /evaluate-question for question %s with %.2f/%s marks",
+            payload.question_no,
+            marks,
+            payload.max_marks,
+        )
+
         return {
-            "marks": 0.0,
-            "confidence": 0.1,
+            "marks": marks,
+            "confidence": confidence,
             "feedback": feedback,
         }
 
-    feedback = build_feedback(model_text, scoped_student_text)
-    feedback["extracted_full_answer_sheet"] = student_text[:2000]
-    if payload.question_no is not None:
-        feedback["question_no"] = payload.question_no
-    scores = feedback["score_breakdown"]
-    weighted_score = sum(scores[key] * weight for key, weight in SCORING_WEIGHTS.items())
-    marks = round(max(0.0, min(payload.max_marks, weighted_score * payload.max_marks)), 2)
-    confidence = confidence_from_feedback(feedback, weighted_score)
-    feedback["scoring_weights"] = SCORING_WEIGHTS
-    feedback["mark_calculation"] = {
-        "weighted_score": round(weighted_score, 3),
-        "total_marks": payload.max_marks,
-        "awarded_marks": marks,
-        "formula": (
-            "marks = max_marks * "
-            "(keyword_score*0.40 + semantic_score*0.35 + "
-            "sentence_score*0.15 + length_score*0.10)"
-        ),
-    }
+    finally:
+        if is_temp:
+            file_path.unlink(missing_ok=True)
 
-    logger.info(
-        "Completed /evaluate-question for question %s with %.2f/%s marks",
-        payload.question_no,
-        marks,
-        payload.max_marks,
-    )
-
-    return {
-        "marks": marks,
-        "confidence": confidence,
-        "feedback": feedback,
-    }
-
-
-def extract_text_from_upload(relative_path: str) -> str:
-    file_path = safe_upload_path(relative_path)
+def extract_text_from_upload(file_url: str) -> str:
+    if is_http_url(file_url):
+        tmp_path = download_to_temp(file_url)
+        try:
+            return extract_text_from_file(tmp_path)
+        finally:
+            tmp_path.unlink(missing_ok=True)  # clean up temp file
+    # fallback: treat as local relative path (legacy)
+    file_path = safe_upload_path(file_url)
     return extract_text_from_file(file_path)
 
 
@@ -428,10 +508,11 @@ def safe_upload_path(relative_path: str) -> Path:
 
 
 def safe_file_path(path_value: str) -> Path:
+    if is_http_url(path_value):
+        return download_to_temp(path_value)
     candidate = Path(path_value)
     file_path = candidate.resolve() if candidate.is_absolute() else (UPLOAD_ROOT / path_value).resolve()
     return validate_readable_path(file_path, path_value)
-
 
 def validate_readable_path(file_path: Path, original_value: str) -> Path:
     if not file_path.is_relative_to(UPLOAD_ROOT):
@@ -1074,7 +1155,7 @@ def evaluate_text(payload: TextEvaluationRequest) -> dict:
     scores = feedback["score_breakdown"]
 
     weighted_score = sum(scores[key] * weight for key, weight in SCORING_WEIGHTS.items())
-    ai_marks = round(max(0.0, min(payload.max_marks, weighted_score * payload.max_marks)), 2)
+    ai_marks = round_to_half(max(0.0, min(payload.max_marks, weighted_score * payload.max_marks)), 2)
     confidence = confidence_from_feedback(feedback, weighted_score)
 
     return {
