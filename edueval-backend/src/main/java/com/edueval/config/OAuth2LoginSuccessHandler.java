@@ -29,21 +29,24 @@ public class OAuth2LoginSuccessHandler implements AuthenticationSuccessHandler {
         String email = oAuth2User.getAttribute("email");
         String name = oAuth2User.getAttribute("name");
 
-        // Auto-register on first Google login, otherwise fetch existing user
+        boolean isNewUser = !userRepository.findByEmail(email).isPresent();
+
         User user = userRepository.findByEmail(email).orElseGet(() -> {
             User newUser = User.builder()
                     .name(name)
                     .email(email)
-                    .passwordHash(null)   // no password for Google users
-                    .role(Role.STUDENT)   // default role — change if needed
+                    .passwordHash(null)
+                    .role(Role.STUDENT)
                     .build();
             return userRepository.save(newUser);
         });
 
         String jwt = jwtUtil.generateToken(user.getEmail());
 
-        // Send token to React via query param
-       String redirectUrl = "https://edu-eval-rho.vercel.app/oauth2/callback?token=" + jwt;
+        String redirectUrl = isNewUser
+                ? "https://edu-eval-rho.vercel.app/oauth2/callback?token=" + jwt + "&newUser=true"
+                : "https://edu-eval-rho.vercel.app/oauth2/callback?token=" + jwt;
+
         response.sendRedirect(redirectUrl);
     }
 }

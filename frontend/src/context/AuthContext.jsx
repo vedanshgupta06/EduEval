@@ -3,7 +3,6 @@ import AuthContext from './AuthContextObject';
 
 export function AuthProvider({ children }) {
   const [user, setUser] = useState(() => {
-    // Restore session from localStorage on page refresh
     const token = localStorage.getItem('token');
     const stored = localStorage.getItem('user');
     if (token && stored) {
@@ -23,13 +22,18 @@ export function AuthProvider({ children }) {
     setUser(userData);
   };
 
+  const updateUser = (userData) => {
+    localStorage.setItem('user', JSON.stringify(userData));
+    setUser(userData);
+  };
+
   const logout = () => {
     localStorage.clear();
     setUser(null);
   };
 
   return (
-    <AuthContext.Provider value={{ user, login, logout, loading }}>
+    <AuthContext.Provider value={{ user, login, logout, loading, updateUser }}>
       {children}
     </AuthContext.Provider>
   );

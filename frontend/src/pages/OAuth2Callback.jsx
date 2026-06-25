@@ -11,6 +11,7 @@ export default function OAuth2Callback() {
 
   useEffect(() => {
     const token = searchParams.get('token');
+    const isNewUser = searchParams.get('newUser') === 'true';
 
     if (!token) {
       toast.error('Google login failed. Please try again.');
@@ -18,14 +19,18 @@ export default function OAuth2Callback() {
       return;
     }
 
-    // Fetch user profile using the token
     api.get('/api/auth/me', {
       headers: { Authorization: `Bearer ${token}` }
     })
       .then((res) => {
         login(res.data, token);
-        toast.success(`Welcome, ${res.data.name}!`);
-        navigate(res.data.role === 'TEACHER' ? '/teacher' : '/student');
+        if (isNewUser) {
+          toast.success(`Welcome, ${res.data.name}! Please select your role.`);
+          navigate('/select-role');
+        } else {
+          toast.success(`Welcome back, ${res.data.name}!`);
+          navigate(res.data.role === 'TEACHER' ? '/teacher' : '/student');
+        }
       })
       .catch(() => {
         toast.error('Google login failed. Please try again.');
