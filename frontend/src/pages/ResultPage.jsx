@@ -127,7 +127,14 @@ export default function ResultPage() {
   const missingFb  = fb.missing_points || [];
   const extraFb    = fb.additional_points || [];
   const extracted  = fb.extracted_student_answer || fb.extracted_full_answer_sheet || '';
-  const confidence = evaluation?.aiConfidence;
+
+  const rawConfidence = evaluation?.aiConfidence;
+  const confidence =
+    rawConfidence == null ? null
+    : typeof rawConfidence === 'string' ? rawConfidence.toUpperCase()
+    : rawConfidence >= 0.75 ? 'HIGH'
+    : rawConfidence >= 0.50 ? 'MEDIUM'
+    : 'LOW';
 
   return (
     <div className="page">

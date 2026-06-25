@@ -213,21 +213,13 @@ export default function SubmissionReviewPage() {
       setSavingAll(false);
     }
   };
-
-  const openFile = async (fileUrl, errorMessage) => {
-    try {
-      const token = localStorage.getItem('token');
-      const res = await fetch(
-        `http://localhost:8080/api/files/${fileUrl}`,
-        { headers: { Authorization: `Bearer ${token}` } }
-      );
-      if (!res.ok) throw new Error(`${res.status}`);
-      const blob = await res.blob();
-      window.open(URL.createObjectURL(blob), '_blank');
-    } catch {
-      toast.error(errorMessage);
-    }
-  };
+const openFile = (fileUrl, errorMessage) => {
+  if (!fileUrl) {
+    toast.error(errorMessage);
+    return;
+  }
+  window.open(fileUrl, '_blank');
+};
 
   if (loading)     return <div className="loading">Loading review...</div>;
   if (!submission) return <div className="error">Submission not found</div>;

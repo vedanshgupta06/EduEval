@@ -4,13 +4,11 @@ spring:
       - optional:file:.env[.properties]
       - optional:file:../.env[.properties]
   datasource:
-    url: ${EDUEVAL_DB_URL:jdbc:postgresql://localhost:5432/edueval}
-    username: ${EDUEVAL_DB_USERNAME:postgres}
-    password: ${EDUEVAL_DB_PASSWORD:}
+    url:  ${DB_URL}
+    username:  ${DB_username}
+    password:  ${DB_password}
     driver-class-name: org.postgresql.Driver
-  web:
-    resources:
-      static-locations: file:${EDUEVAL_UPLOAD_DIR:./uploads}/
+ 
   jpa:
     hibernate:
       ddl-auto: ${EDUEVAL_JPA_DDL_AUTO:update}
@@ -26,6 +24,17 @@ spring:
       max-file-size: 20MB
       max-request-size: 25MB
 
+  security:
+    oauth2:
+      client:
+        registration:
+          google:
+            client-id: ${GOOGLE_CLIENT_ID}
+            client-secret: ${GOOGLE_CLIENT_SECRET}
+            scope:
+              - email
+              - profile
+
 server:
   port: ${PORT:8080}
 
@@ -37,13 +46,13 @@ app:
   ai-engine:
     base-url: ${EDUEVAL_AI_BASE_URL:http://127.0.0.1:8000}
 
-  file-storage:
-    upload-dir: ${EDUEVAL_UPLOAD_DIR:./uploads}
 
 logging:
   level:
     com.edueval: ${EDUEVAL_LOG_LEVEL:INFO}
     org.springframework.security: ${EDUEVAL_SECURITY_LOG_LEVEL:WARN}
 
-
-
+cloudinary:
+  cloud-name: ${CLOUDINARY_CLOUD_NAME}
+  api-key: ${CLOUDINARY_API_KEY}
+  api-secret: ${CLOUDINARY_API_SECRET}    
