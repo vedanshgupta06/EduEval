@@ -18,7 +18,8 @@ import java.util.function.Consumer;
 public class AiEngineService {
 
     private final RestTemplate restTemplate;
-    private final AiResultHandler aiResultHandler;  // ← no circular dependency
+    private final AiResultHandler aiResultHandler;
+    private final FileStorageService fileStorageService;  // ← add this
 
     @Value("${app.ai-engine.base-url}")
     private String aiBaseUrl;
@@ -31,9 +32,13 @@ public class AiEngineService {
         UUID submissionId = submission.getId();
         log.info("Sending submission {} to AI engine", submissionId);
 
+        // Resolve public_id → full HTTPS Cloudinary URL for FastAPI to fetch
+        String fileUrl = nullSafe(submission.getFileUrl());
+        String resolvedFileUrl = fileUrl;
+
         Map<String, Object> payload = Map.of(
                 "submission_id",     submissionId.toString(),
-                "file_url",          submission.getFileUrl(),
+                "file_url",          resolvedFileUrl,          // ← was: submission.getFileUrl()
                 "model_answer_url",  nullSafe(submission.getExam().getModelAnswerUrl()),
                 "model_answer_text", nullSafe(submission.getExam().getModelAnswerText()),
                 "total_marks",       submission.getExam().getTotalMarks()
