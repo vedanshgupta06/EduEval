@@ -167,10 +167,9 @@ class QuestionEvaluationRequest(BaseModel):
 app = FastAPI(title="EduEval AI Engine")
 
 
-@app.get("/health")
+@app.api_route("/health", methods=["GET", "HEAD"])
 def health() -> dict[str, str]:
     return {"status": "ok"}
-
 
 @app.post("/evaluate")
 def evaluate(payload: EvaluationRequest) -> dict[str, Any]:
